@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<annotations>
+  <!-- datatype section under construction. Will not be parsed by anyone/anything-->
+  <datatype name="IPV6">
+    <bb name="16bit" type="BV16"/>
+    <field name="q1">
+      <range>
+	<min>0</min>
+	<max>65535</max>
+      </range>
+    </field>
+    <field name="o1">
+      <range>
+	<min>0</min>
+	<max>65535</max>
+      </range>
+    </field>
+    <field name="o2">
+      <range>
+	<min>0</min>
+	<max>65535</max>
+      </range>
+    </field>
+    <field name="o3">
+      <range>
+	<min>0</min>
+	<max>65535</max>
+      </range>
+    </field>
+    <field name="o4">
+      <range>
+	<min>0</min>
+	<max>65535</max>
+      </range>
+    </field>
+    <field name="o5">
+      <range>
+	<min>0</min>
+	<max>65535</max>
+      </range>
+    </field>
+    <field name="o6">
+      <range>
+	<min>0</min>
+	<max>65535</max>
+      </range>
+    </field>
+    <field name="o7">
+      <range>
+	<min>0</min>
+	<max>65535</max>
+      </range>
+    </field>
+    <field name="o8">
+      <range>
+	<min>0</min>
+	<max>65535</max>
+      </range>
+    </field>
+  </datatype>
+  <datatype name="IPV4">
+    <bb name="8bit" type="BV8"/>
+    <field name="q1">
+      <bb>8bit</bb>
+      <range>
+	<min>0</min>
+	<max>255></max>
+      </range>     
+    </field>
+    <field name="q2">
+      <bb>8bit</bb>
+      <range>
+	<min>0</min>
+	<max>255</max>
+      </range>	
+    </field>
+    <field name="q3">
+      <bb>8bit</bb>
+      <range>
+	<min>0</min>
+	<max>255</max>
+      </range>	
+    </field>
+    <field name="q4">
+      <bb>8bit</bb>
+      <range>
+	<min>0</min>
+	<max>255</max>
+      </range>	
+    </field>
+  </datatype>
+  <datatype name="MAC">
+    <bb name="8bithex" type="BV8"/>
+  </datatype>
+  <!--strategy
+      should contain:
+       -negatives (to be decided)
+       -type: exploratory, boundary, ranges, free (to be decided)
+       exploratory:
+          Every single value is tested.
+       boundary (default):
+          eventually maximal string length, how on special types? (to be defined)
+       ranges:
+          how many and how are they composed? 
+  -->
+  <strategy>
+    
+  </strategy>
+  <!--solver-parameters-->
+  <solver>
+    <path>/home/ebopaul/Documents/smt/z3-4.3.2.8ef4ec7009ab-x64-debian-7.4/bin/z3</path>
+    <arg>-smt2</arg>
+  </solver>
+  <!--datatype annotations-->
+  <dtMapping old="RouterIdStr" new="IPV4">
+    <q1>
+      <range>
+	<min>0</min>
+	<max>126</max>
+      </range>
+      <!--<range>
+	<min>128</min>
+	 <max>255</max>
+      </range>-->	
+    </q1>
+  </dtMapping>
+</annotations>
+
