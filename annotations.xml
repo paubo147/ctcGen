@@ -118,10 +118,10 @@
 	<min>0</min>
 	<max>126</max>
       </range>
-      <!--<range>
+      <range>
 	<min>128</min>
 	 <max>255</max>
-      </range>-->	
+      </range>	
     </q1>
   </dtMapping>
 </annotations>

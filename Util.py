@@ -11,19 +11,16 @@ def enum(**members):
 
 """
 returns the hex value (in string representation)
-in a SMTLIB-conform hex value i.e., #xff #xa3
+in a SMTLIB-conform hsaex value i.e., #xff #xa3
 """
 def getSMThex(s, i=2):
-    plain_hex=hex(int(s))
-    digits=re.findall("\d+", plain_hex[1:])
-    if i-len(digits[0]) < 0:
-        raise Exception("argument should be smaller than hex-representation: i="+i+", hex="+digits[0])
-    return "#x"+ ("0"*(i-len(digits[0])))+"".join(digits[0])
-
+    plain_hex=hex(int(s))[2:]
+    return "#x"+plain_hex.zfill(i)
         
 """
 returns the plain name of a string of the following shape:
 "test[1:2]", "string[12:15]"
+
 """
 def get_plain_name(s):
     if "[" in s:

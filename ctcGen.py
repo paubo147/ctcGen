@@ -1,6 +1,12 @@
-from SMTLIB_transformer import *
-from SMT_test_master import *
+#from SMTLIB_transformer import *
+#from SMT_test_master import *
+import argparse
 import time
+
+import Parser
+from SMTLIBBuilder import SMTLIBBuilder
+from ctcGatherer import CTCGatherer
+
 from Util import *
 
 if __name__=="__main__":
@@ -20,21 +26,28 @@ if __name__=="__main__":
     #PARSE THE XML FILE; STORE EVERYTHING IN AN OBJECT
     parse_obj=Parser.parse([open(s, "r") for s in args.files], args.annotation, args.prnt, args.debug, args.cls)
 
-    smt_creator=SMTLIBMainBuilder(args.files, parse_obj.annotations)
-    smt_creator.createBaseSorts(parse_obj.baseTypes)
-    smt_creator.createDerivedSorts(parse_obj.derivedTypes)
-    smt_creator.createEnums(parse_obj.enumTypes)
-    smt_creator.createStructs(parse_obj.structs)
-    smt_creator.createClasses(parse_obj.tree, parse_obj)
+    smt_creator=SMTLIBBuilder(args.files, parse_obj)
     
-    smt_facts=str(smt_creator)
+    smt_facts_str=str(smt_creator.facts)
     if args.output:
         with open(args.output, "wb") as f:
-            f.write(str(smt_facts))
-    s="/home/ebopaul/Documents/smt/z3-4.3.2.8ef4ec7009ab-x64-debian-7.4/bin/z3"
-    strategy=TestStrategy(smt_creator.getRanges())
-    testGen=SMT_TestGuide(smt_facts, parse_obj.annotations, smt_creator.classDatatypes, strategy)
-    generic_tc_xml=testGen.run(False)
+            f.write(smt_facts_str)
+
+    #GATHER SMT SOLVER COMMAND FROM THE ANNOTATIONS
+    smt_cmd=""
+    if not parse_obj.annotations:
+        print "USING DEFAULT SOLVER PARAMS"
+        smt_cmd=["/home/ebopaul/Documents/smt/z3-4.3.2.8ef4ec7009ab-x64-debian-7.4/bin/z3", "-smt2"]
+    else:
+        smt_cmd=[parse_obj.annotations["solver_path"]]+[parse_obj.annotations[x] for x in parse_obj.annotations if "solver_arg" in x]
+        
+    gatherer=CTCGatherer(smt_creator.facts, smt_cmd)
+    
+
+
+    #testGen=SMT_TestGuide(smt_creator.facts, parse_obj.annotations, smt_creator.facts.classDatatypes)
+    #generic_tc_xml=testGen.run(False)
+    generic_tc_xml=gatherer.getXML()
 
     if args.generic:
         with open(args.generic, "w+") as f:
