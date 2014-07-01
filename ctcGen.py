@@ -4,10 +4,21 @@ import argparse
 import time
 
 import Parser
-from SMTLIBBuilder import SMTLIBBuilder
-from ctcGatherer import CTCGatherer
+
+import SMTLIBBuilder
+import ctcGatherer
 
 from Util import *
+
+def extractSMTSolverCmd(parse_obj):
+    smt_cmd=[]
+    if not parse_obj.annotations:
+        print "USING DEFAULT SOLVER PARAMS"
+        smt_cmd=["/home/ebopaul/Documents/smt/z3-4.3.2.8wef4ec7009ab-x64-debian-7.4/bin/z3", "-smt2"]
+    else:
+        smt_cmd=[parse_obj.annotations["solver_path"]]+[parse_obj.annotations[x] for x in parse_obj.annotations if "solver_arg" in x]
+
+    return smt_cmd
 
 if __name__=="__main__":
     start=time.time()
@@ -26,32 +37,26 @@ if __name__=="__main__":
     #PARSE THE XML FILE; STORE EVERYTHING IN AN OBJECT
     parse_obj=Parser.parse([open(s, "r") for s in args.files], args.annotation, args.prnt, args.debug, args.cls)
 
-    smt_creator=SMTLIBBuilder(args.files, parse_obj)
+    smt_facts=SMTLIBBuilder.build(args.files, parse_obj)
+    print smt_facts.toSMTLIB()
     
-    smt_facts_str=str(smt_creator.facts)
     if args.output:
         with open(args.output, "wb") as f:
-            f.write(smt_facts_str)
+            f.write(str(smt_facts))
 
     #GATHER SMT SOLVER COMMAND FROM THE ANNOTATIONS
-    smt_cmd=""
-    if not parse_obj.annotations:
-        print "USING DEFAULT SOLVER PARAMS"
-        smt_cmd=["/home/ebopaul/Documents/smt/z3-4.3.2.8ef4ec7009ab-x64-debian-7.4/bin/z3", "-smt2"]
-    else:
-        smt_cmd=[parse_obj.annotations["solver_path"]]+[parse_obj.annotations[x] for x in parse_obj.annotations if "solver_arg" in x]
+    smt_cmd=extractSMTSolverCmd(parse_obj)
+    
         
-    gatherer=CTCGatherer(smt_creator.facts, smt_cmd)
+    generic_testcases=ctcGatherer.process(smt_facts, smt_cmd)
     
 
 
     #testGen=SMT_TestGuide(smt_creator.facts, parse_obj.annotations, smt_creator.facts.classDatatypes)
     #generic_tc_xml=testGen.run(False)
-    generic_tc_xml=gatherer.getXML()
-
     if args.generic:
         with open(args.generic, "w+") as f:
-            f.write(generic_tc_xml)
+            f.write(ctcGatherer.getXML(generic_testcases))
 
 
             
