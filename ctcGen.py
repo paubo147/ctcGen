@@ -1,12 +1,12 @@
-#from SMTLIB_transformer import *
-#from SMT_test_master import *
 import argparse
 import time
+import os
 
-import Parser
+from ComponentSearcher import searchComponent
 
-import SMTLIBBuilder
-import ctcGatherer
+from Parser import parseXML
+from SMTLIBBuilder import buildSMTLIBFacts
+from ctcGatherer import processSMTLIBFacts, getXML
 
 from Util import *
 
@@ -20,25 +20,28 @@ def extractSMTSolverCmd(parse_obj):
 
     return smt_cmd
 
-if __name__=="__main__":
-    start=time.time()
-
-    aparser=argparse.ArgumentParser()
-    aparser.add_argument("files", help="list of xml-files containing mim-definitions", nargs="+")
-    aparser.add_argument("-d", "--debug", action="store_true", help="debug output")
-    aparser.add_argument("-p", "--print", dest="prnt", action="store_true", help="print_output")
-    aparser.add_argument("-g", "--generic", dest="generic", type=str, help="print generic test-cases to file")
-    aparser.add_argument("-c", "--class", dest="cls", type=str, help="only class to be parsed")
-    aparser.add_argument("-a", "--annotation", type=str, help="annotation-file")
-    aparser.add_argument("-o", "--output-file", dest="output", type=str, help="output-file for smt code")
+"""
+Search command: used to search for mim and/or classname and directory
+"""
+def search(args):
+    if not args.cls and not args.mim:
+        print "WHAT NOW?"
+        return
     
-    args=aparser.parse_args()
+    xml_files=list()
+    for (dirpath, dirnames, filenames) in os.walk(args.directory):
+        xml_files.extend([dirpath+x for x in filenames if x[-4:] == ".xml" and x[0] != "."])
 
-    #PARSE THE XML FILE; STORE EVERYTHING IN AN OBJECT
-    parse_obj=Parser.parse([open(s, "r") for s in args.files], args.annotation, args.prnt, args.debug, args.cls)
+    return searchComponent(xml_files, args.cls, args.mim)
 
-    smt_facts=SMTLIBBuilder.build(args.files, parse_obj)
-    print smt_facts.toSMTLIB()
+"""
+Create command: used to create test-cases
+"""
+def create(args):
+    parse_obj=parseXML([open(s, "r") for s in args.files], args.annotation, args.prnt, args.debug, args.cls)
+    
+    smt_facts=buildSMTLIBFacts(args.files, parse_obj)
+    #print smt_facts.toSMTLIB()
     
     if args.output:
         with open(args.output, "wb") as f:
@@ -48,7 +51,7 @@ if __name__=="__main__":
     smt_cmd=extractSMTSolverCmd(parse_obj)
     
         
-    generic_testcases=ctcGatherer.process(smt_facts, smt_cmd)
+    generic_testcases=processSMTLIBFacts(smt_facts, smt_cmd)
     
 
 
@@ -56,9 +59,41 @@ if __name__=="__main__":
     #generic_tc_xml=testGen.run(False)
     if args.generic:
         with open(args.generic, "w+") as f:
-            f.write(ctcGatherer.getXML(generic_testcases))
+            f.write(getXML(generic_testcases))
+        print "TESTCASES WRITTEN TO "+args.generic
 
 
+
+
+
+
+if __name__=="__main__":
+    start=time.time()
+
+    aparser=argparse.ArgumentParser()
+    subparsers=aparser.add_subparsers(help="sub-command help")
+    
+    parser_create=subparsers.add_parser("create", help="create testcases")
+    parser_create.add_argument("files", help="list of xml-files containing mim-definitions", nargs="+")
+    parser_create.add_argument("-d", "--debug", action="store_true", help="debug output")
+    parser_create.add_argument("-p", "--print", dest="prnt", action="store_true", help="print_output")
+    parser_create.add_argument("-g", "--generic", dest="generic", type=str, help="print generic test-cases to file")
+    parser_create.add_argument("-c", "--class", dest="cls", type=str, help="only class to be parsed")
+    parser_create.add_argument("-a", "--annotation", type=str, help="annotation-file")
+    parser_create.add_argument("-o", "--output-file", dest="output", type=str, help="output-file for smt code")
+    parser_create.set_defaults(func=create)
+    
+    parser_search=subparsers.add_parser("search", help="finds a class-file")
+    parser_search.add_argument("-m", "--mim", dest="mim", help="mim name")
+    parser_search.add_argument("-c", "--class", dest="cls", help="class name")
+    parser_search.add_argument("directory", help="folder containing model files")
+    parser_search.set_defaults(func=search)
+                           
+
+    args=aparser.parse_args()
+
+    #CALLS THE FUNCTION ACCORDING TO THE func-default
+    args.func(args)
             
     end =time.time()
     

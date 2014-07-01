@@ -90,9 +90,6 @@ class ClassNode:
         self.isSystemCreated=False
         self.dewey_code=""
         
-    def __str__(self):
-        return name
-
     def setDewey(self, s):
         self.dewey_code=s
         

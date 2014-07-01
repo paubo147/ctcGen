@@ -1,7 +1,5 @@
 import re
-import xml.etree.cElementTree as ET
-from xml.dom import minidom
-
+from lxml import etree as ET
 
 """
 enum function for python<3.4
@@ -51,6 +49,4 @@ def get_range(s):
 
 
 def getPrettyXML(elem, indent=" "):
-    rough_string=ET.tostring(elem)
-    reparsed=minidom.parseString(rough_string)
-    return reparsed.toprettyxml(indent)
+    return ET.tostring(elem, pretty_print=True)

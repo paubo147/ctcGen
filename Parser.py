@@ -1,17 +1,18 @@
-import xml.etree.cElementTree as ET
+#from lxml import etree as ET
 from Parsing_bb import *
-import json
 from Annotation_parser import *
 
 
 class ParserResult:
-    def __init__(self, baseTypes, derivedTypes, enumTypes, tree, structs, annotations):
+    def __init__(self, baseTypes, derivedTypes, enumTypes, classes, structs, annotations, pc_relations):
         self.derivedTypes=derivedTypes
         self.enumTypes=enumTypes
         self.baseTypes=baseTypes
-        self.tree=tree
+        self.classes=classes
         self.structs=structs
         self.annotations=annotations
+        self.pc_relations=pc_relations
+        
 
 annotations=dict()
 
@@ -207,6 +208,8 @@ def parsePCRelationship(containment):
 
     if cclas is None or pclas is None:
         raise Exception("Relationship-inconsistency found")
+
+    
     if pclas.get("name") not in classes:
         name=""
         e=pclas.get("name")
@@ -220,12 +223,15 @@ def parsePCRelationship(containment):
         bb=ClassNode(et_el)
         
         classes[name]=bb
+
     parent_bb=classes[pclas.get("name")]
     child_bb=classes[cclas.get("name")]
     child_bb.addParent(parent_bb)
     parent_bb.addChild(child_bb)
-    pc_list.append(parent_bb)
-    pc_list.append(child_bb)
+    pc_list.append((parent_bb, child_bb))
+    #pc_list.append(parent_bb)
+    #pc_list.append(child_bb)
+
 
 def parseInterMimRelationships(assoc):
     client=assoc.findall("associationEnd")[0].find("hasClass")
@@ -278,7 +284,7 @@ def dewey_decorator(bb_class, deweynr=0, deweycode=""):
 Parses the xml files as well as the annotation file. Has the option to create parse-tree with only one class
 
 """
-def parse(xml_files,annotation_file, output_types=False, debugMode=False, onlyClass=None):
+def parseXML(xml_files,annotation_file, output_types=False, debugMode=False, onlyClass=None):
     models=[]
     #create element trees out of all the xml files
     for file in xml_files:
@@ -288,7 +294,9 @@ def parse(xml_files,annotation_file, output_types=False, debugMode=False, onlyCl
     moRefs=getMissingClasses(models)
 
     if moRefs:
-        print "ERROR: not all MIMS present: ", moRefs
+        print "ERROR: the following classes are missing (mim::class): "
+        for mo in moRefs:
+            print "\t", mo
         if not debugMode:
             exit(-2)
 
@@ -302,7 +310,6 @@ def parse(xml_files,annotation_file, output_types=False, debugMode=False, onlyCl
         for mim in model.findall("mim"):
             if onlyClass is None or onlyClass in [c.get("name") for c in mim.findall("class")]:
                 parseClasses(mim, annotations)
-                 
 
     #resolve all datatypes, enums and structs
     for model in models:
@@ -312,9 +319,9 @@ def parse(xml_files,annotation_file, output_types=False, debugMode=False, onlyCl
             checkStructs(mim)
 
     #resolve relationships
-    #if not onlyClass:
-    #    for model in models:
-    #        parseRelationships(model)
+    if not onlyClass:
+        for model in models:
+            parseRelationships(model)
 
     #dummy one-leaf node
     parents=[]
@@ -360,5 +367,5 @@ def parse(xml_files,annotation_file, output_types=False, debugMode=False, onlyCl
         print structs
 
 
-    return ParserResult(set(baseTypes), derivedTypes, enumTypes, bb_root, structs, annotations)
+    return ParserResult(set(baseTypes), derivedTypes, enumTypes, classes, structs, annotations, pc_list)
 
