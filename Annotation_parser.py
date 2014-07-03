@@ -15,13 +15,40 @@ def getRanges(et):
 def parse_annotation_file(file):
     annotations=dict()
     with open(file, "r") as f:
-        #datatypeAnnotations
         root=ET.ElementTree(file=f)
+
+        #buildingblocks for datatypes
+        for bb in root.findall("buildingBlock"):
+            name=bb.get("name")
+            smt=bb.find("smt").text
+            typ=bb.get("type")
+            annotations["bb_"+name]=(typ,smt)
+            
+        #datatypes
+        for dt in root.findall("datatype"):
+            dt_name=dt.get("name")
+            fields=dt.find("fields")
+            if fields is not None:
+                no_fields=int(fields.get("cardinality"))
+                prefix=fields.get("prefix")
+                f=fields.find("field")
+                basetype=f.find("bb").text
+                rng=[f.find("range").find("min").text, f.find("range").find("max").text]
+                fs=dict()
+                for i in range(no_fields):
+                    fs[prefix+str(i)]=(basetype, rng)
+                annotations["dt_"+dt_name]=fs
+            else:
+                #TODO what about simplier datatypes, like "string" ---> covered in basic building blocks
+                print "ANNOTATION_PARSER: DUNO WHAT TO DO!"
+                exit()
+
+        #datatypeAnnotations
         for ann in root.findall("dtMapping"):
             oldName=ann.get("old")
             newName=ann.get("new")
             ranges=getRanges(ann)
-            annotations[oldName]=[newName, ranges]
+            annotations["on_"+oldName]=[newName, ranges]
 
         #solver-things
         solver_root=root.findall("solver")[0]

@@ -44,7 +44,7 @@ def checkSettings(node, a):
         node.setNonPersistent()
     if a.find("restricted") is not None:
         node.setRestricted()
-    if a.find("key"):
+    if a.find("key") is not None:
         node.setKey()
 
     

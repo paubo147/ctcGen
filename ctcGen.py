@@ -50,7 +50,7 @@ def create(args):
     #GATHER SMT SOLVER COMMAND FROM THE ANNOTATIONS
     smt_cmd=extractSMTSolverCmd(parse_obj)
     
-        
+    #print str(smt_facts.toSMTLIB())
     generic_testcases=processSMTLIBFacts(smt_facts, smt_cmd)
     
 

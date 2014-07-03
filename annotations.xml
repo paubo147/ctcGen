@@ -1,97 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <annotations>
   <!-- datatype section under construction. Will not be parsed by anyone/anything-->
+  <buildingBlock name="vec16bit" type="bitvector">
+    <smt>(_ BitVec 16)</smt>
+  </buildingBlock>
+
+  <buildingBlock name="vec8bit" type="bitvector">
+    <smt>(_ BitVec 8)</smt>
+  </buildingBlock>
+
+  <buildingBlock name="String" type="bitvector">
+    <smt>(_ BitVec 32)</smt>
+  </buildingBlock>
+
   <datatype name="IPV6">
-    <bb name="16bit" type="BV16"/>
-    <field name="q1">
-      <range>
-	<min>0</min>
-	<max>65535</max>
-      </range>
-    </field>
-    <field name="o1">
-      <range>
-	<min>0</min>
-	<max>65535</max>
-      </range>
-    </field>
-    <field name="o2">
-      <range>
-	<min>0</min>
-	<max>65535</max>
-      </range>
-    </field>
-    <field name="o3">
-      <range>
-	<min>0</min>
-	<max>65535</max>
-      </range>
-    </field>
-    <field name="o4">
-      <range>
-	<min>0</min>
-	<max>65535</max>
-      </range>
-    </field>
-    <field name="o5">
-      <range>
-	<min>0</min>
-	<max>65535</max>
-      </range>
-    </field>
-    <field name="o6">
-      <range>
-	<min>0</min>
-	<max>65535</max>
-      </range>
-    </field>
-    <field name="o7">
-      <range>
-	<min>0</min>
-	<max>65535</max>
-      </range>
-    </field>
-    <field name="o8">
-      <range>
-	<min>0</min>
-	<max>65535</max>
-      </range>
-    </field>
+    <fields cardinality="8" prefix="o">
+      <field>
+	<bb>vec16bit</bb>
+	<range>
+	  <min>#x0000</min>
+	  <max>#xFFFF</max>
+	</range>
+      </field>
+    </fields>
   </datatype>
+
   <datatype name="IPV4">
-    <bb name="8bit" type="BV8"/>
-    <field name="q1">
-      <bb>8bit</bb>
-      <range>
-	<min>0</min>
-	<max>255></max>
-      </range>     
-    </field>
-    <field name="q2">
-      <bb>8bit</bb>
-      <range>
-	<min>0</min>
-	<max>255</max>
-      </range>	
-    </field>
-    <field name="q3">
-      <bb>8bit</bb>
-      <range>
-	<min>0</min>
-	<max>255</max>
-      </range>	
-    </field>
-    <field name="q4">
-      <bb>8bit</bb>
-      <range>
-	<min>0</min>
-	<max>255</max>
-      </range>	
-    </field>
+    <fields cardinality="4" prefix="q">
+      <field>
+	<bb>vec8bit</bb>
+	<range>
+	  <min>#x00</min>
+	  <max>#xFF</max>
+	</range>
+      </field>
+    </fields>
   </datatype>
+
   <datatype name="MAC">
-    <bb name="8bithex" type="BV8"/>
+    <fields cardinality="6" prefix="m">
+      <field>
+	<bb>vec8bit</bb>
+	<range>
+	  <min>#x00</min>
+	  <max>#xFF</max>
+	</range>
+      </field>
+    </fields>
   </datatype>
+
   <!--strategy
       should contain:
        -negatives (to be decided)
@@ -115,13 +72,25 @@
   <dtMapping old="RouterIdStr" new="IPV4">
     <q1>
       <range>
-	<min>0</min>
-	<max>126</max>
+	<min>#x00</min>
+	<max>#x7E</max>
       </range>
       <range>
-	<min>128</min>
-	 <max>255</max>
+	<min>#x80</min>
+	<max>#xDF</max>
       </range>	
+    </q1>
+  </dtMapping>
+  <dtMapping old="Ipv4UnicastAddressStr" new="IPV4">
+    <q1>
+      <range>
+	<min>#x00</min>
+	<max>#x7E</max>
+      </range>
+      <range>
+	<min>#x80</min>
+	<max>#xDF</max>
+      </range>
     </q1>
   </dtMapping>
 </annotations>
