@@ -4,31 +4,29 @@ from Annotation_parser import *
 
 
 class ParserResult:
-    def __init__(self, baseTypes, derivedTypes, enumTypes, classes, structs, annotations, pc_relations):
+    def __init__(self, derivedTypes, enumTypes, classes, structs, annotations, pc_relations):
         self.derivedTypes=derivedTypes
         self.enumTypes=enumTypes
-        self.baseTypes=baseTypes
         self.classes=classes
         self.structs=structs
         self.annotations=annotations
         self.pc_relations=pc_relations
         
 
-annotations=dict()
+annotations={}
 
-enumsToResolve=list()
-datatypesToResolve=list()
-structsToResolve=list()
+enumsToResolve=[]
+datatypesToResolve=[]
+structsToResolve=[]
 
-derivedTypes=dict()
-enumTypes=dict()
-baseTypes=list()
+derivedTypes={}
+enumTypes={}
 
-classes=dict()
-structs=dict()
-associations=dict()
-validValues=dict()
-pc_list=list()
+classes={}
+structs={}
+associations={}
+validValues={}
+pc_list=[]
 
 def checkSettings(node, a):
     if a.find("filter") is not None:
@@ -63,26 +61,15 @@ def parseAttributes(bb, annotations):
             att_n.setType(list(dt)[0].get("name"))
             datatypesToResolve.append(list(dt)[0].find("mimName").text+"::"+list(dt)[0].get("name"))
         elif typekey in ("string", "boolean") or "int" in typekey:
-            #TODO brutal hack. To be replaced with annotation-file
-            if typekey=="string":
-                att_n.setType("string")
-                if "ipv4address" in an.lower():
-                    att_n.setType("IPV4")
-                elif "macaddress" in an.lower():
-                    att_n.setType("MAC")
-                #TODO route distinguisher
-
-            else:
-                att_n.setType(typekey)
-                baseTypes.append(typekey)
-        elif typekey in ("enumRef", "structRef"):
+            att_n.setType(typekey)
+        elif typekey in ("enumRef", "structRef"):#TODO check if safe to use it like that
             att_n.setType(list(dt)[0].get("name"))
             res_name=list(dt)[0].find("mimName").text+"::"+list(dt)[0].get("name")
             if typekey[0] == "e":
                 enumsToResolve.append(res_name)
             elif typekey[1]=="s":
                 structsToResolve.append(res_name)
-        elif typekey == "sequence":#TODO fix later
+        elif typekey == "sequence":#TODO check if it is safe to use
             seq_dt=list(dt.find(typekey))[0]
             typekey=seq_dt.tag
             att_n.setType(typekey)
@@ -115,19 +102,19 @@ def checkDerivedDataTypes(mim):
         
         derivedTypes[ddt_name]=bt_name
              
-        translation=list()
+        translation=[]
         if bt_name == "string":
-            if "ipv4address" in ddt_name.lower():
-                bt_name="IPV4"
-            if "macaddress" in ddt_name.lower():
-                bt_name="MAC"
+            #if "ipv4address" in ddt_name.lower():
+            #    bt_name="IPV4"
+            #if "macaddress" in ddt_name.lower():
+            #    bt_name="MAC"
             for s in ddt.iter("lengthRange"):
-                translation = [s.find("min").text,s.find("max").text]
+                translation.append([s.find("min").text,s.find("max").text])
             if baseType.find("string").find("validValues") is not None:
                 validValues[ddt_name]=baseType.find("string").find("validValues").text
         else:
             for range in ddt.iter("range"):
-                translation=[range.find("min").text,range.find("max").text]
+                translation.append([range.find("min").text,range.find("max").text])
 
         derivedTypes[ddt_name]=bt_name+(str(translation) if len(translation) != 0 else "")
         
@@ -301,7 +288,7 @@ def parseXML(xml_files,annotation_file, output_types=False, debugMode=False, onl
             exit(-2)
 
     #Parse annotation file before the classes are parsed
-    annotations=dict()
+    annotations={}
     if annotation_file:
         annotations=parse_annotation_file(annotation_file)
            
@@ -357,8 +344,6 @@ def parseXML(xml_files,annotation_file, output_types=False, debugMode=False, onl
     if output_types: 
         print "TREE:"
         text_outputter(bb_root)
-        print "BASETYPES:"
-        print set(baseTypes)
         print "DERIVEDTYPES:"
         print derivedTypes
         print "ENUMS"
@@ -367,5 +352,5 @@ def parseXML(xml_files,annotation_file, output_types=False, debugMode=False, onl
         print structs
 
 
-    return ParserResult(set(baseTypes), derivedTypes, enumTypes, classes, structs, annotations, pc_list)
+    return ParserResult(derivedTypes, enumTypes, classes, structs, annotations, pc_list)
 

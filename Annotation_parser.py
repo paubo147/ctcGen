@@ -3,7 +3,7 @@ import xml.etree.cElementTree as ET
 
 
 def getRanges(et):
-    ret=dict()
+    ret={}
     for p in et:
         fieldname=p.tag
         ranges=list()
@@ -13,7 +13,7 @@ def getRanges(et):
     return ret
 
 def parse_annotation_file(file):
-    annotations=dict()
+    annotations={}
     with open(file, "r") as f:
         root=ET.ElementTree(file=f)
 
@@ -34,7 +34,7 @@ def parse_annotation_file(file):
                 f=fields.find("field")
                 basetype=f.find("bb").text
                 rng=[f.find("range").find("min").text, f.find("range").find("max").text]
-                fs=dict()
+                fs={}
                 for i in range(no_fields):
                     fs[prefix+str(i)]=(basetype, rng)
                 annotations["dt_"+dt_name]=fs
