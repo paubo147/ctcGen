@@ -13,15 +13,6 @@ from SMTLIBCodeGenerator import *
 
 from Util import *
 
-def extractSMTSolverCmd(parse_obj):
-    smt_cmd=[]
-    if not parse_obj.annotations:
-        print "USING DEFAULT SOLVER PARAMS"
-        smt_cmd=["/home/ebopaul/Documents/smt/z3-4.3.2.8wef4ec7009ab-x64-debian-7.4/bin/z3", "-smt2"]
-    else:
-        smt_cmd=[parse_obj.annotations["solver_path"]]+[parse_obj.annotations[x] for x in parse_obj.annotations if "solver_arg" in x]
-
-    return smt_cmd
 
 """
 Search command: used to search for mim and/or classname and directory
@@ -40,6 +31,7 @@ def search(args):
 Create command: used to create test-cases
 """
 def create(args):
+    start=time.time()
     parse_obj=parseXML([open(s, "r") for s in args.files], args.annotation, args.prnt, args.debug, args.cls)
     tokens={
         "COMMENT_CHAR": ";",
@@ -53,42 +45,27 @@ def create(args):
         "UNARY_EXPRESSION": "({0} {1})",
         "ASSERTION": "(assert {0})",
         "AND": "and",
+        "OR":"or",
         "DEFINE_SORT": "(define-sort {0} () {1})",
         "DECLARE_DATATYPES": "(declare-datatypes ({0}) (({1})))",
         "DECLARE_FUN":"(declare-fun {0} ({1}) ({2} {3}))",
-
-
-        #REGULAR EXPRESSIONS
-        "MODEL_RE": r"\(model *(?P<model>.*) *\)",
-        "DEFINE_FUN_RE": r"\(define\-fun *(?P<func_name>.+) *\(\) *\((?P<func_signature>.+)\) *\((?P<mk_func>.+)\)\)",
-        "ACCESSOR_RE": r"(\(.*?\)\s?|.*?\s)"
         }
     smtlib_gen=SMTLIBCodeGenerator(tokens)
 
     
     smt_facts=buildSMTLIBFacts(args.files, parse_obj, smtlib_gen)
-    #print smt_facts.toSMTLIB()
     
     if args.output:
         with open(args.output, "wb") as f:
-            f.write(str(smt_facts))
+            f.write(smt_facts.toSMTLIB())
 
-    #GATHER SMT SOLVER COMMAND FROM THE ANNOTATIONS
-    smt_cmd=extractSMTSolverCmd(parse_obj)
-
-
-
+    #process the SMTLIBFacts with the extracted SMT Solver command
+    generic_testcases=processSMTLIBFacts(smt_facts, parse_obj.solver_cmd, smtlib_gen)
     
-    #print str(smt_facts.toSMTLIB())
-    generic_testcases=processSMTLIBFacts(smt_facts, smt_cmd, smtlib_gen)
-    
-
-
-    #testGen=SMT_TestGuide(smt_creator.facts, parse_obj.annotations, smt_creator.facts.classDatatypes)
-    #generic_tc_xml=testGen.run(False)
+    end =time.time()
     if args.generic:
         with open(args.generic, "w+") as f:
-            f.write(getXML(generic_testcases))
+            f.write(getXML(end-start, generic_testcases))
         print "TESTCASES WRITTEN TO "+args.generic
 
 

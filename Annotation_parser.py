@@ -1,4 +1,4 @@
-import xml.etree.cElementTree as ET
+from lxml import etree as ET
 
 
 
@@ -33,10 +33,19 @@ def parse_annotation_file(file):
                 prefix=fields.get("prefix")
                 f=fields.find("field")
                 basetype=f.find("bb").text
+                delimiter=dt.find("delimiter").text
                 rng=[f.find("range").find("min").text, f.find("range").find("max").text]
                 fs={}
+                produce_str=[]
                 for i in range(no_fields):
-                    fs[prefix+str(i)]=(basetype, rng)
+                    fs[prefix+str(i)]={"basetype": basetype, "range":rng}
+                    produce_str.append("field")
+                    if i < no_fields-1:
+                        produce_str.append(delimiter)
+                        #fs["delimiter_"+prefix+str(i)]=delimiter
+
+                fs["produce_string"]=produce_str
+                    
                 annotations["dt_"+dt_name]=fs
             else:
                 #TODO what about simplier datatypes, like "string" ---> covered in basic building blocks
@@ -48,7 +57,7 @@ def parse_annotation_file(file):
             oldName=ann.get("old")
             newName=ann.get("new")
             ranges=getRanges(ann)
-            annotations["on_"+oldName]=[newName, ranges]
+            annotations["on_"+oldName]={"newName":newName, "ranges":ranges}
 
         #solver-things
         solver_root=root.findall("solver")[0]

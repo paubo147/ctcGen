@@ -1,3 +1,4 @@
+
 class StructDef:
     def __init__(self, name):
         self.name=name
@@ -88,10 +89,7 @@ class ClassNode:
         self.dependency=""
         self.isRoot=False
         self.isSystemCreated=False
-        self.dewey_code=""
         
-    def setDewey(self, s):
-        self.dewey_code=s
         
     def setSystemCreated(self):
         self.isSystemCreated=True
@@ -113,32 +111,9 @@ class ClassNode:
 
     def addServing(self, server):
         self.servers.append(server)
-    
+    def __str__(self):
+        s=[self.name, ":"]
+        for a in self.attributes:
+            s.append(str(a))
+        return " ".join(s)
  
-def hasCyclicReferences(bb, resolved, seen):
-    seen.append(bb)
-    for after in bb.parents + bb.servers:
-        if after not in resolved:
-            if after in seen:
-                return True
-            hasCyclicReferences(after, resolved, seen)
-        resolved.append(after)
-    return False
-
-def text_outputter(moc, tabs=0):
-    s=tabs*" " +"[C]" + moc.dewey_code + " "+ moc.name +"["
-
-    if moc.isRoot:
-        s+= "root"
-    if moc.isSystemCreated:
-        s+= ",systemCreated"
-    if moc.dependency:
-        s+= ",dependency"
-    s += "]\n"
-    for attr in moc.attributes:
-        s += (tabs+1)*" " + "[A]" + str(attr) + "\n"
-    for enc in moc.servers:
-        s+= (tabs+1)*" " + "[E]" + enc + "\n"
-    print s,
-    for child in moc.children:
-        text_outputter(child, tabs+2)

@@ -14,6 +14,7 @@
   </buildingBlock>
 
   <datatype name="IPV6">
+    <delimiter>:</delimiter>
     <fields cardinality="8" prefix="o">
       <field>
 	<bb>vec16bit</bb>
@@ -26,6 +27,7 @@
   </datatype>
 
   <datatype name="IPV4">
+    <delimiter>.</delimiter>
     <fields cardinality="4" prefix="q">
       <field>
 	<bb>vec8bit</bb>
@@ -37,7 +39,8 @@
     </fields>
   </datatype>
 
-  <datatype name="MAC">
+  <datatype name="MAC"> 
+    <delimiter>:</delimiter>
     <fields cardinality="6" prefix="m">
       <field>
 	<bb>vec8bit</bb>
