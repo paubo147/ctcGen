@@ -16,13 +16,17 @@ def parse_annotation_file(file):
     annotations={}
     with open(file, "r") as f:
         root=ET.ElementTree(file=f)
+        #smtmappings
+        for m in root.findall("xml2SMTmapping"):
+            annotations["mapping_"+m.get("xml")]=m.get("smt")
+
 
         #buildingblocks for datatypes
         for bb in root.findall("buildingBlock"):
             name=bb.get("name")
             smt=bb.find("smt").text
             typ=bb.get("type")
-            annotations["bb_"+name]=(typ,smt)
+            annotations["bb_"+name]={"type":typ,"smtType":smt}
             
         #datatypes
         for dt in root.findall("datatype"):

@@ -25,7 +25,6 @@
       </field>
     </fields>
   </datatype>
-
   <datatype name="IPV4">
     <delimiter>.</delimiter>
     <fields cardinality="4" prefix="q">
@@ -38,7 +37,6 @@
       </field>
     </fields>
   </datatype>
-
   <datatype name="MAC"> 
     <delimiter>:</delimiter>
     <fields cardinality="6" prefix="m">
@@ -51,21 +49,6 @@
       </field>
     </fields>
   </datatype>
-
-  <!--strategy
-      should contain:
-       -negatives (to be decided)
-       -type: exploratory, boundary, ranges, free (to be decided)
-       exploratory:
-          Every single value is tested.
-       boundary (default):
-          eventually maximal string length, how on special types? (to be defined)
-       ranges:
-          how many and how are they composed? 
-  -->
-  <strategy>
-    
-  </strategy>
   <!--solver-parameters-->
   <solver>
     <path>/home/ebopaul/Documents/smt/z3-4.3.2.8ef4ec7009ab-x64-debian-7.4/bin/z3</path>
@@ -96,5 +79,15 @@
       </range>
     </q1>
   </dtMapping>
+  <!-- mp.xml to smt mapping -->
+  <xml2SMTmapping xml="int16" smt="Int"/>
+  <xml2SMTmapping xml="int32" smt="Int"/>
+  <xml2SMTmapping xml="int64" smt="Int"/>
+  <xml2SMTmapping xml="uint8" smt="Int"/>
+  <xml2SMTmapping xml="uint16" smt="Int"/>
+  <xml2SMTmapping xml="uint32" smt="Int"/>
+  <xml2SMTmapping xml="uint64" smt="Int"/>
+  <xml2SMTmapping xml="boolean" smt="Bool"/>
+  <xml2SMTmapping xml="string" smt="String"/>
 </annotations>
 

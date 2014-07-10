@@ -1,6 +1,7 @@
 from lxml import etree as ET
 from Parsing_bb import *
 from Annotation_parser import *
+from Coverage import computeCoverage
 
 
 class ParserResult:
@@ -25,6 +26,10 @@ class ParserResult:
         
         self.solver_cmd=[]
 
+        self.xml2SMT={}
+
+    def addMapping(self, old, new):
+        self.xml2SMT[old]=new
 
     def addClass(self, bb):
         self.classes[bb.name]=bb
@@ -49,6 +54,14 @@ class ParserResult:
 
     def addSolverSettings(self, cmd, args):
         self.solver_cmd=[cmd]+args
+
+    def getCoverage(self):
+        coverage=1
+        for c in self.classes.values():
+            for a in c.attributes:
+                coverage *= computeCoverage(a, self.derivedTypes, self.oldNewTranslations, self.annotatedTypes, self.enumTypes)
+
+        return coverage
 
 annotations={}
 
@@ -116,12 +129,11 @@ def isAnnotatedDatatype(p, annotations, dtName):
             
     return ret
 
-#CHECK CODE COVERAGE
-def resolveDerivedDatatype(p, ddt):
+def resolveDerivedDatatype(attribute, p, ddt):
     baseType=ddt.find("baseType")
     bt_name=list(baseType)[0].tag
     ddt_name=ddt.get("name")
-    
+    attribute["baseType"]=bt_name
     
     ddt_value=bt_name
              
@@ -136,14 +148,17 @@ def resolveDerivedDatatype(p, ddt):
             translation.append([range.find("min").text,range.find("max").text])
 
     ddt_value=bt_name+(str(translation) if len(translation) != 0 else "")
+    
     p.addDerivedType(ddt_name, ddt_value)
 
-def resolveDatatype(p, annotations, mimName, dtName):
+def resolveDatatype(attribute, p, annotations, mimName, dtName):
     for model in models:
         e=model.xpath("mim[@name='{0}']/derivedDataType[@name='{1}']".format(mimName, dtName))
         if len(e) >= 1:
+            attribute["derivedDataType"]=dtName
             if not isAnnotatedDatatype(p, annotations, dtName):
-                resolveDerivedDatatype(p, e[0])
+                resolveDerivedDatatype(attribute, p, e[0])
+                
         else:
             print "".join([mimName,"::",dtName," could not be found!"])
         
@@ -162,7 +177,10 @@ def resolveStringType(p, annotations):
 
 def parseAttributes(p, bb, annotations):
     for a in bb.definition.findall("attribute"):
+        attribute={}
         att_n=AttrNode()
+        attribute["name"]=a.get("name")
+
         an=a.get("name")
         
         att_n.setName(an)
@@ -173,7 +191,7 @@ def parseAttributes(p, bb, annotations):
 
         if typekey == "derivedDataTypeRef":
             att_n.setType(list(dt)[0].get("name"))
-            resolveDatatype(p, annotations, list(dt)[0].find("mimName").text, list(dt)[0].get("name"))
+            resolveDatatype(attribute, p, annotations, list(dt)[0].find("mimName").text, list(dt)[0].get("name"))
             #datatypesToResolve.append(list(dt)[0].find("mimName").text+"::"+list(dt)[0].get("name"))
         elif typekey in ("string", "boolean") or "int" in typekey:
             att_n.setType(typekey)
@@ -201,9 +219,11 @@ def parseAttributes(p, bb, annotations):
         #    att_n.setType(annotations[att_n.type][0])
 
         if list(dt)[0].find("defaultValue") is not None:
+            attribute["defaultValue"]=list(dt)[0].find("defaultValue").text
             att_n.setDefaultValue(list(dt)[0].find("defaultValue").text)
 
         if typekey in validValues:
+            attribute["validValues"]=validValues[typekey]
             att_n.setValidvalues(validValues[typekey])
 
         #used_types.add(att_n.type)
@@ -323,6 +343,10 @@ def parseXML(xml_files,annotation_file, output_types=False, debugMode=False, onl
     if annotation_file:
         annotations=parse_annotation_file(annotation_file)
     
+    for m in [x for x in annotations if "mapping" in x]:
+        p.addMapping(m[8:], annotations[m])
+        
+
     #PUT SOLVER INFORMATION TO THE PARSER RESULT
     if len([x for x in annotations if "solver" in x]) > 0:
         p.addSolverSettings(annotations["solver_path"], [annotations[x] for x in annotations if "solver_arg" in x])

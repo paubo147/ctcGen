@@ -1,9 +1,22 @@
 import re
 from lxml import etree as ET
 import ast
+import random
+import string
+
+def get_random_string():
+    size=random.randint(5, 30)
+    return "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(size))
+
+def get_proper_int(s):
+    ret=0
+    try:
+        ret=int(s)
+    except ValueError:
+        ret=int("0"+s[1:], 16)
+    return ret
 
 def get_name_range(s):
-    print "NAME_RANGE:", s
     name=""
     rang=""
     if "[" in s:
@@ -26,5 +39,6 @@ def get_name_range(s):
     else:
         return (s, None)
 
-def getPrettyXML(elem, indent=" "):
+def get_pretty_XML(elem, indent=" "):
+    print elem
     return ET.tostring(elem, pretty_print=True)

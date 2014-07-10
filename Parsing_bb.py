@@ -17,6 +17,7 @@ class AttrNode:
         self.validValues=""
         self.type=""
         self.defaultValue=""
+        self.coverage=1
 
     def setDefaultValue(self, s):
         self.defaultValue=s

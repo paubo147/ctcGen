@@ -11,8 +11,7 @@ from ctcGatherer import processSMTLIBFacts, getXML
 
 from SMTLIBCodeGenerator import *
 
-from Util import *
-
+import math
 
 """
 Search command: used to search for mim and/or classname and directory
@@ -33,6 +32,7 @@ Create command: used to create test-cases
 def create(args):
     start=time.time()
     parse_obj=parseXML([open(s, "r") for s in args.files], args.annotation, args.prnt, args.debug, args.cls)
+    coverage=math.log(parse_obj.getCoverage())
     tokens={
         "COMMENT_CHAR": ";",
         "LE_BITVECTOR": "bvule",
@@ -60,7 +60,7 @@ def create(args):
             f.write(smt_facts.toSMTLIB())
 
     #process the SMTLIBFacts with the extracted SMT Solver command
-    generic_testcases=processSMTLIBFacts(smt_facts, parse_obj.solver_cmd, smtlib_gen)
+    generic_testcases=processSMTLIBFacts(coverage, smt_facts, parse_obj.solver_cmd, smtlib_gen)
     
     end =time.time()
     if args.generic:
