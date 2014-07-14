@@ -54,6 +54,7 @@ def create(args):
 
     
     smt_facts=buildSMTLIBFacts(args.files, parse_obj, smtlib_gen)
+    print smt_facts.toSMTLIB()
     
     if args.output:
         with open(args.output, "wb") as f:

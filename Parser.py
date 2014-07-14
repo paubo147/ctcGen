@@ -1,18 +1,12 @@
 from lxml import etree as ET
 from Parsing_bb import *
+from TagFinder import *
 from Annotation_parser import *
 from Coverage import computeCoverage
 
+import Util
 
 class ParserResult:
-    #def __init__(self):
-    #    self.derivedTypes=derivedTypes
-    #    self.enumTypes=enumTypes
-    #    self.classes=classes
-    #    self.structs=structs
-    #    self.annotations=annotations
-    #    self.pc_relations=pc_relations
-                
     def __init__(self):
         self.derivedTypes={}
         self.enumTypes={}
@@ -20,6 +14,9 @@ class ParserResult:
         self.classes={}
         self.pc_relations=[]
         
+        self.derivedTypes={}
+        self.enumTypes={}
+        self.structTypes={}
         self.oldNewTranslations={}
         self.annotatedTypes={}
         self.buildingBlocks={}
@@ -52,6 +49,9 @@ class ParserResult:
     def addEnumType(self, k, v):
         self.enumTypes[k]=v
 
+    def addStructType(self, k, v):
+        self.structTypes[k]=v
+
     def addSolverSettings(self, cmd, args):
         self.solver_cmd=[cmd]+args
 
@@ -59,199 +59,98 @@ class ParserResult:
         coverage=1
         for c in self.classes.values():
             for a in c.attributes:
+                print computeCoverage(a, self.derivedTypes, self.oldNewTranslations, self.annotatedTypes, self.enumTypes)
                 coverage *= computeCoverage(a, self.derivedTypes, self.oldNewTranslations, self.annotatedTypes, self.enumTypes)
 
         return coverage
 
-annotations={}
+#annotations={}
 
-enumsToResolve=[]
-datatypesToResolve=[]
-structsToResolve=[]
+#enumsToResolve=[]
+#datatypesToResolve=[]
+#structsToResolve=[]
 
-derivedTypes={}
-enumTypes={}
+#derivedTypes={}
+#enumTypes={}
 
-classes={}
-structs={}
-associations={}
+#classes={}
+#structs={}
+#associations={}
 validValues={}
-pc_list=[]
+#pc_list=[]
 
-def checkSettings(node, a):
+
+def checkSettings(attribute, a):
     if a.find("filter") is not None:
-        node.setFilter(a.find("filter").text)
+        attribute["filter"]=a.find("filter").text
     if a.find("mandatory") is not None:
-        node.setMandatory()
+        attribute["mandatory"]="true"
     if a.find("noNotification") is not None:
-        node.setNoNotification()
-
+        attribute["noModification"]="true"
     if a.find("readOnly") is not None:
-        node.setReadOnly()
+        attribute["readOnly"]="true"
     if a.find("nonPersistent") is not None:
-        node.setNonPersistent()
+        attribute["nonPersistent"]="true"
     if a.find("restricted") is not None:
-        node.setRestricted()
+        attribute["restricted"]="true"
     if a.find("key") is not None:
-        node.setKey()
+        attribute["key"]="true"
     
     #CLASS ATTRIBUTES
     if a.find("dependenciesScript") is not None:
-        node.setDependency(a.find("dependenciesScript").text)
-        
+        attribute["dependenciesScript"]=a.find("dependenciesScript").text
     if a.find("root") is not None:
-        node.setRoot()
-        
+        attribute["root"]="true"
     if a.find("systemCreated") is not None:
-        node.setSystemCreated()
+        attribute["systemCreated"]="true"
 
 
-
-
-buildingBlocks={}
-annotatedTypes={}
-oldNewMapping={}
-
-#NOT REALLY A PERFORMANCE ISSUE, UNLESS ANNOTATION FILE IS FULL OF THINGS
-def isAnnotatedDatatype(p, annotations, dtName):
-    ret=False
-    for k,v in annotations.iteritems(): 
-        if k=="on_"+dtName:                       #CHECKING FOR OLD_NEW TRANSLATION
-            p.addOldNewTranslation(k[3:], v)
-            for k1,v1 in annotations.iteritems(): #CHECKING FOR DATATYPE DEFINITION
-                if k1=="dt_"+v["newName"]:
-                    p.addAnnotatedType(k[3:], v1)
-                    for k2,v2 in annotations.iteritems():
-                        bbtypes=set(x["basetype"] for x in v1.values() if "basetype" in x)
-                        if k2[3:] in bbtypes:     #CHECKING FOR BUILDING BLOCKS
-                            p.addBuildingBlock(k2[3:], v2)
-                            ret=True
-            
-    return ret
-
-def resolveDerivedDatatype(attribute, p, ddt):
-    baseType=ddt.find("baseType")
-    bt_name=list(baseType)[0].tag
-    ddt_name=ddt.get("name")
-    attribute["baseType"]=bt_name
-    
-    ddt_value=bt_name
-             
-    translation=[]
-    if bt_name == "string":
-        for s in ddt.iter("lengthRange"):
-            translation.append([s.find("min").text,s.find("max").text])
-        if baseType.find("string").find("validValues") is not None:
-            validValues[ddt_name]=baseType.find("string").find("validValues").text
-    else:
-        for range in ddt.iter("range"):
-            translation.append([range.find("min").text,range.find("max").text])
-
-    ddt_value=bt_name+(str(translation) if len(translation) != 0 else "")
-    
-    p.addDerivedType(ddt_name, ddt_value)
-
-def resolveDatatype(attribute, p, annotations, mimName, dtName):
-    for model in models:
-        e=model.xpath("mim[@name='{0}']/derivedDataType[@name='{1}']".format(mimName, dtName))
-        if len(e) >= 1:
-            attribute["derivedDataType"]=dtName
-            if not isAnnotatedDatatype(p, annotations, dtName):
-                resolveDerivedDatatype(attribute, p, e[0])
-                
-        else:
-            print "".join([mimName,"::",dtName," could not be found!"])
-        
-def resolveEnum(p, mimName, dtName):
-    for model in models:
-        enum=model.xpath("mim[@name='{0}']/enum[@name='{1}']".format(mimName, dtName))
-        if len(enum) >= 1:
-            if enum[0].get("name") not in enumTypes:
-                p.addEnumType(enum[0].get("name"), enum[0].xpath("enumMember/@name"))
-
-
-def resolveStringType(p, annotations):
-    for k,v in annotations.iteritems():
-        if k=="bb_String":
-            p.addBuildingBlock(k[3:], v)
+#buildingBlocks={}
+#annotatedTypes={}
+#oldNewMapping={}
 
 def parseAttributes(p, bb, annotations):
     for a in bb.definition.findall("attribute"):
         attribute={}
-        att_n=AttrNode()
         attribute["name"]=a.get("name")
-
-        an=a.get("name")
-        
-        att_n.setName(an)
 
         #TYPE CHECKS
         dt=a.find("dataType")
         typekey=list(dt)[0].tag
-
         if typekey == "derivedDataTypeRef":
-            att_n.setType(list(dt)[0].get("name"))
-            resolveDatatype(attribute, p, annotations, list(dt)[0].find("mimName").text, list(dt)[0].get("name"))
-            #datatypesToResolve.append(list(dt)[0].find("mimName").text+"::"+list(dt)[0].get("name"))
+            attribute["dataType"]=dt[0].get("name")
+            p.addDerivedType(dt[0].get("name"), None)
         elif typekey in ("string", "boolean") or "int" in typekey:
-            att_n.setType(typekey)
-            resolveStringType(p, annotations)
-        elif typekey in ("enumRef", "structRef"):#TODO check if safe to use it like that
-            att_n.setType(list(dt)[0].get("name"))
-            res_name=list(dt)[0].find("mimName").text+"::"+list(dt)[0].get("name")
-            if typekey[0] == "e":
-                resolveEnum(p, list(dt)[0].find("mimName").text, list(dt)[0].get("name"))
-                #enumsToResolve.append(res_name)
-            elif typekey[1]=="s":
-                print "STRUCT!!!"
-                #structsToResolve.append(res_name)
-        elif typekey == "sequence":#TODO check if it is safe to use
-            seq_dt=list(dt.find(typekey))[0]
-            typekey=seq_dt.tag
-            att_n.setType(typekey)
+            attribute["dataType"]=typekey
+            if typekey=="string":
+                p.addBuildingBlock("String", annotations["bb_String"]) #UGLY!!!
+        elif typekey =="enumRef":
+            res_name=dt[0].find("mimName").text+"::"+dt[0].get("name")
+            attribute["dataType"]=dt[0].get("name")
+            p.addEnumType(dt[0].get("name"), None)
+        elif typekey == "structRef":
+            attribute["dataType"]=dt[0].get("name")
+            p.addStructType(dt[0].get("name"), None)
+        elif typekey == "sequence":
+            attribute["dataType"]=typekey
+            #TODO decide what to do?
         elif typekey=="moRef":
-            att_n.setType("Int") #TODO could even work, since moRef is an int to a key-attribute of some other class
+            attribute["dataType"]="string"
+            #TODO maybe it is enough! Check if key-attributes are always of type string!
+
         else:
             print("NO SOURCE_CODE YET: ",typekey)
 
-        #print att_n.type, annotations, att_n.type in annotations
-        #if att_n.type in annotations:
-        #    att_n.setType(annotations[att_n.type][0])
 
-        if list(dt)[0].find("defaultValue") is not None:
+        if dt[0].find("defaultValue") is not None:
             attribute["defaultValue"]=list(dt)[0].find("defaultValue").text
-            att_n.setDefaultValue(list(dt)[0].find("defaultValue").text)
 
         if typekey in validValues:
             attribute["validValues"]=validValues[typekey]
-            att_n.setValidvalues(validValues[typekey])
 
-        #used_types.add(att_n.type)
-        checkSettings(att_n, a)
-        bb.addAttribute(att_n)
+        checkSettings(attribute, a)
+        bb.addAttribute(attribute)
         
-
-
-#def getStructMemberDataType(structMember):
-#    if structMember.find("derivedDataTypeRef") is not None:
-#        derdt=structMember.find("derivedDataTypeRef")
-#        ret=derdt.find("mimName").text+"::"+derdt.get("name")
-#        if derdt.get("name") not in derivedTypes:
-#            print ("ERROR: derived type of struct missing")
-#            return None
-#        return derdt.get("name")
-#    if structMember.find("moRef") is not None:
-#        return structMember.find("moRef").get("name")
-
-#def checkStructs(mim):
-#    for struct in mim.findall("struct"):
-#        if mim.get("name")+"::"+struct.get("name") not in structsToResolve:
-#            continue
-#        structname=struct.get("name")
-#        structs[structname]=list()
-#        for sm in struct.findall("structMember"):
-#            if getStructMemberDataType(sm) is not None:
-#                structs[structname].append([sm.get("name"),getStructMemberDataType(sm)])
 
 def parseClasses(p, mim, annotations):
     for cls in mim.findall("class"):
@@ -271,12 +170,12 @@ def parsePCRelationship(p, containment):
         cclas = child.find("hasClass")
 
     assert cclas is not None and pclas is not None
-    
-    parent_bb=p.classes[pclas.get("name")]
-    child_bb=p.classes[cclas.get("name")]
-    child_bb.addParent(parent_bb)
-    parent_bb.addChild(child_bb)
-    p.addPCRelation(parent_bb, child_bb)
+    if pclas.get("name") in p.classes  and cclas.get("name") in p.classes:
+        parent_bb=p.classes[pclas.get("name")]
+        child_bb=p.classes[cclas.get("name")]
+        child_bb.addParent(parent_bb)
+        parent_bb.addChild(child_bb)
+        p.addPCRelation(parent_bb, child_bb)
 
 
 
@@ -316,6 +215,91 @@ def getMissingClasses(models):
                 moRefs = [value for value in moRefs if value != mim.get("name")+"::"+cls.get("name")]
     return set(moRefs)
 
+def checkDerivedDataTypes(p, mim, annotations):
+    for dt in mim.xpath("derivedDataType"):
+        dt_name=dt.get("name")
+        if dt_name in p.derivedTypes:
+            #is it a special type?
+            if "on_"+dt_name in annotations and dt_name not in p.oldNewTranslations:
+                del p.derivedTypes[dt_name]
+                oldName=dt_name
+                newName=annotations["on_"+dt_name]["newName"]
+                p.addOldNewTranslation(dt_name, annotations["on_"+dt_name])
+                if "dt_"+newName in annotations and newName not in p.annotatedTypes:
+                    p.addAnnotatedType(newName, annotations["dt_"+newName])
+                    for bt in set(x["baseType"] for x in annotations["dt_"+newName].values() if "baseType" in x):
+                        if  bt not in p.buildingBlocks and "bb_"+bt in annotations:
+                            p.addBuildingBlock(bt, annotations["bb_"+bt])
+            else:
+                ddt_value={}
+                baseType=dt.find("baseType")
+                bt_name=baseType[0].tag
+                ddt_value["baseType"]=bt_name
+                translation=[]
+                rnge=[]
+                if bt_name == "string":
+                    for s in baseType.iter("lengthRange"):
+                        rnge.append([int(s.find("min").text), int(s.find("max").text)])
+                 #if baseType.find("string").find("validValues") is not None:
+                 #    validValues[ddt_name]=baseType.find("string").find("validValues").text
+                else:
+                    for r in baseType.iter("range"):
+                        rnge.append([int(r.find("min").text), int(r.find("max").text)])
+                if rnge:
+                    ddt_value["range"]=rnge
+                
+                p.addDerivedType(dt_name, ddt_value)
+            
+def checkEnumDataTypes(p, mim, annotations):
+    for e in mim.xpath("enum"):
+        enum_name=e.get("name")
+        if enum_name in p.enumTypes:
+            enum_members={}
+            for em in e.xpath("enumMember"):
+                enum_members[em.get("name")]=em.find("value").text
+            p.addEnumType(enum_name, enum_members)
+
+
+def checkStructDataTypes(p, mim, annotations):
+    for s in mim.xpath("struct"):
+        struct_name=s.get("name")
+        if struct_name in p.structTypes:
+            struct_members=[]
+            for member in s.xpath("structMember"):
+                #TODO default values?
+                sm={}
+                sm["name"]=member.get("name")
+                datatype=member[-1] #TODO careful: really the last child?
+                typekey=datatype.tag
+                if typekey=="derivedDataTypeRef":
+                    sm["type"]=datatype.get("name")
+                    p.addDerivedType(datatype.get("name"), None)
+                elif typekey=="enumRef":
+                    sm["type"]=datatype.get("name")
+                    p.addEnum(datatype.get("name"), None)
+                elif typekey in ("string", "boolean") or "int" in typekey:
+                    sm["type"]=typekey
+                    rnge=[]
+                    if typekey == "string":
+                        for s in datatype.iter("lengthRange"):
+                            rnge.append([int(s.find("min").text), int(s.find("max").text)])
+                    #valid values!
+                    else:
+                        for r in datatype.iter("range"):
+                            rnge.append([int(r.find("min").text), int(s.find("max").text)])
+                    if rnge:
+                        sm["range"]=rnge
+                elif typekey == "moRef":
+                    sm["type"]="string"
+                struct_members.append(sm)
+            p.addStructType(struct_name, struct_members)
+
+def checkForMissingDataTypes(p, mim, annotations):
+    checkStructDataTypes(p, mim, annotations)
+    checkDerivedDataTypes(p, mim, annotations)
+    checkEnumDataTypes(p, mim, annotations)
+    
+
 """
 Parses the xml files as well as the annotation file. Has the option to create parse-tree with only one class
 
@@ -328,15 +312,15 @@ def parseXML(xml_files,annotation_file, output_types=False, debugMode=False, onl
     for file in xml_files:
         models.append(ET.ElementTree(file=file))
 
+    if not debugMode:
     #check if classes are missing
-    moRefs=getMissingClasses(models)
+        moRefs=getMissingClasses(models)
 
-    if moRefs:
-        print "ERROR: the following classes are missing (mim::class): "
-        for mo in moRefs:
-            print "\t", mo
-        if not debugMode:
-            exit(-2)
+        if moRefs:
+            print "ERROR: the following classes are missing (mim::class): "
+            for mo in moRefs:
+                print "\t", mo
+                exit(-2)
 
     #Parse annotation file before the classes are parsed
     annotations={}
@@ -355,10 +339,12 @@ def parseXML(xml_files,annotation_file, output_types=False, debugMode=False, onl
 
     
     #parse all classes 
-    for model in models:
-        for mim in model.findall("mim"):
-            if onlyClass is None or onlyClass in [c.get("name") for c in mim.findall("class")]:
-                parseClasses(p, mim, annotations)
+    for mim in findTag(models, "mim"):
+        if onlyClass is None or onlyClass in [c.get("name") for c in mim.findall("class")]:
+            parseClasses(p, mim, annotations)
+
+    for mim in findTag(models, "mim"):
+        checkForMissingDataTypes(p, mim, annotations)
 
     if not onlyClass:
         for model in models:

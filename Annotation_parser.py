@@ -42,7 +42,7 @@ def parse_annotation_file(file):
                 fs={}
                 produce_str=[]
                 for i in range(no_fields):
-                    fs[prefix+str(i)]={"basetype": basetype, "range":rng}
+                    fs[prefix+str(i)]={"baseType": basetype, "range":rng}
                     produce_str.append("field")
                     if i < no_fields-1:
                         produce_str.append(delimiter)

@@ -86,11 +86,23 @@ class ClassNode:
         self.parents= []
         self.children= []
         self.servers= []
-        self.attributes= []
+        self.attributes=[]
         self.dependency=""
         self.isRoot=False
         self.isSystemCreated=False
+        self.settings={}
         
+    def __getitem__(self, key):
+        return self.settings[key]
+
+    def __setitem__(self, key, val):
+        self.settings[key]=val
+
+    def __delitem__(self, key):
+        del self.settings[key]
+
+    def __contains__(self, key):
+        return key in self.settings
         
     def setSystemCreated(self):
         self.isSystemCreated=True
