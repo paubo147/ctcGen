@@ -39,6 +39,16 @@ def get_name_range(s):
     else:
         return (s, None)
 
+def getBoundaries(rnge):
+    boundaries=[]
+    n=3 #could be passed as a parameter
+    for rng in rnge:
+        b=rng[1]
+        a=rng[0]
+        division=(b-a)/float(n)
+        for i in range(n):
+            boundaries.append([a+i*division+(1 if i!=0 else 0),a+(i+1)*division])
+    return boundaries
+
 def get_pretty_XML(elem, indent=" "):
-    print elem
     return ET.tostring(elem, pretty_print=True)

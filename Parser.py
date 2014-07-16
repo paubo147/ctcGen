@@ -4,6 +4,7 @@ from TagFinder import *
 from Annotation_parser import *
 from Coverage import computeCoverage
 
+import math
 import Util
 
 class ParserResult:
@@ -20,10 +21,14 @@ class ParserResult:
         self.oldNewTranslations={}
         self.annotatedTypes={}
         self.buildingBlocks={}
+        self.exclusiveTypes={}
         
         self.solver_cmd=[]
 
         self.xml2SMT={}
+
+        self.coverage=0
+        self.goalCoverage=0
 
     def addMapping(self, old, new):
         self.xml2SMT[old]=new
@@ -40,6 +45,9 @@ class ParserResult:
     def addAnnotatedType(self, k, v):
         self.annotatedTypes[k]=v
 
+    def addExclusiveType(self, k, v):
+        self.exclusiveTypes[k]=v
+
     def addBuildingBlock(self, k, v):
         self.buildingBlocks[k]=v
 
@@ -49,20 +57,23 @@ class ParserResult:
     def addEnumType(self, k, v):
         self.enumTypes[k]=v
 
-    def addStructType(self, k, v):
-        self.structTypes[k]=v
+    def addStructType(self, k, exclusive, v):
+        self.structTypes[k]=(exclusive, v)
 
     def addSolverSettings(self, cmd, args):
         self.solver_cmd=[cmd]+args
 
+    def setGoalCoverage(self, i):
+        self.goalCoverage=i
+
     def getCoverage(self):
-        coverage=1
+        self.coverage=1
         for c in self.classes.values():
             for a in c.attributes:
-                print computeCoverage(a, self.derivedTypes, self.oldNewTranslations, self.annotatedTypes, self.enumTypes)
-                coverage *= computeCoverage(a, self.derivedTypes, self.oldNewTranslations, self.annotatedTypes, self.enumTypes)
+                self.coverage *= computeCoverage(a["dataType"], self.derivedTypes, self.oldNewTranslations, self.annotatedTypes, self.exclusiveTypes, self.enumTypes, self.structTypes)
 
-        return coverage
+        self.coverage=math.log(self.coverage)
+        return self.coverage
 
 #annotations={}
 
@@ -130,7 +141,7 @@ def parseAttributes(p, bb, annotations):
             p.addEnumType(dt[0].get("name"), None)
         elif typekey == "structRef":
             attribute["dataType"]=dt[0].get("name")
-            p.addStructType(dt[0].get("name"), None)
+            p.addStructType(dt[0].get("name"), False, None)
         elif typekey == "sequence":
             attribute["dataType"]=typekey
             #TODO decide what to do?
@@ -230,11 +241,19 @@ def checkDerivedDataTypes(p, mim, annotations):
                     for bt in set(x["baseType"] for x in annotations["dt_"+newName].values() if "baseType" in x):
                         if  bt not in p.buildingBlocks and "bb_"+bt in annotations:
                             p.addBuildingBlock(bt, annotations["bb_"+bt])
+                if "exdt_"+newName in annotations and newName not in p.exclusiveTypes:
+                    p.addExclusiveType(newName, annotations["exdt_"+newName])
+                    for optionName in annotations["exdt_"+newName]:
+                        for field in annotations["exdt_"+newName][optionName]["fields"]:
+                            baseType = annotations["exdt_"+newName][optionName]["fields"][field]["baseType"]
+                            if baseType not in p.buildingBlocks and "bb_"+baseType in annotations:
+                                p.addBuildingBlock(baseType, annotations["bb_"+baseType])
             else:
                 ddt_value={}
                 baseType=dt.find("baseType")
                 bt_name=baseType[0].tag
                 ddt_value["baseType"]=bt_name
+
                 translation=[]
                 rnge=[]
                 if bt_name == "string":
@@ -245,8 +264,12 @@ def checkDerivedDataTypes(p, mim, annotations):
                 else:
                     for r in baseType.iter("range"):
                         rnge.append([int(r.find("min").text), int(r.find("max").text)])
+                if not rnge:
+                    rnge=Util.get_name_range(bt_name)[1]
+
                 if rnge:
                     ddt_value["range"]=rnge
+                    #boundaries=Util.getBoundaries(rnge)
                 
                 p.addDerivedType(dt_name, ddt_value)
             
@@ -265,6 +288,8 @@ def checkStructDataTypes(p, mim, annotations):
         struct_name=s.get("name")
         if struct_name in p.structTypes:
             struct_members=[]
+            exclusive=(s.find("isExclusive") is not None)
+                
             for member in s.xpath("structMember"):
                 #TODO default values?
                 sm={}
@@ -272,13 +297,13 @@ def checkStructDataTypes(p, mim, annotations):
                 datatype=member[-1] #TODO careful: really the last child?
                 typekey=datatype.tag
                 if typekey=="derivedDataTypeRef":
-                    sm["type"]=datatype.get("name")
+                    sm["dataType"]=datatype.get("name")
                     p.addDerivedType(datatype.get("name"), None)
                 elif typekey=="enumRef":
-                    sm["type"]=datatype.get("name")
+                    sm["dataType"]=datatype.get("name")
                     p.addEnum(datatype.get("name"), None)
                 elif typekey in ("string", "boolean") or "int" in typekey:
-                    sm["type"]=typekey
+                    sm["dataType"]=typekey
                     rnge=[]
                     if typekey == "string":
                         for s in datatype.iter("lengthRange"):
@@ -290,9 +315,11 @@ def checkStructDataTypes(p, mim, annotations):
                     if rnge:
                         sm["range"]=rnge
                 elif typekey == "moRef":
-                    sm["type"]="string"
+                    sm["dataType"]="string"
+                else:
+                    print "TYPE MISMATCH ON STRUCT MEMBER",sm["name"] 
                 struct_members.append(sm)
-            p.addStructType(struct_name, struct_members)
+            p.addStructType(struct_name, exclusive, struct_members)
 
 def checkForMissingDataTypes(p, mim, annotations):
     checkStructDataTypes(p, mim, annotations)
@@ -306,7 +333,7 @@ Parses the xml files as well as the annotation file. Has the option to create pa
 """
 models=[]
 
-def parseXML(xml_files,annotation_file, output_types=False, debugMode=False, onlyClass=None):
+def parseXML(xml_files, annotation_file, debugMode=False, onlyClass=None):
     p=ParserResult()
     #create element trees out of all the xml files
     for file in xml_files:
@@ -326,10 +353,10 @@ def parseXML(xml_files,annotation_file, output_types=False, debugMode=False, onl
     annotations={}
     if annotation_file:
         annotations=parse_annotation_file(annotation_file)
-    
+
+    #XML 2 SMTLIB datatypes
     for m in [x for x in annotations if "mapping" in x]:
         p.addMapping(m[8:], annotations[m])
-        
 
     #PUT SOLVER INFORMATION TO THE PARSER RESULT
     if len([x for x in annotations if "solver" in x]) > 0:
@@ -349,7 +376,13 @@ def parseXML(xml_files,annotation_file, output_types=False, debugMode=False, onl
     if not onlyClass:
         for model in models:
             parseRelationships(p, model)
-
-
+ #GOALS
+    maxCov=annotations["strategy_maxCoverage"]
+    if maxCov["unit"].upper() in ("%", "PERC", "PERCENT", "PERCENTAGE"):
+        p.setGoalCoverage(p.getCoverage()*int(maxCov["value"]) / 100)
+    else:
+        p.setGoalCoverage(int(maxCov["value"]))
+                       
+    
     #p=ParserResult(derivedTypes, enumTypes, classes, structs, annotations, pc_list)
     return p

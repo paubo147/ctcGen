@@ -13,6 +13,14 @@
     <smt>(_ BitVec 32)</smt>
   </buildingBlock>
 
+  <buildingBlock name="asNumber" type="bitvector">
+    <smt>(_ BitVec 16)</smt>
+  </buildingBlock>
+
+  <buildingBlock name="Number" type="bitvector">
+    <smt>(_ BitVec 32)</smt>
+  </buildingBlock>
+
   <datatype name="IPV6">
     <delimiter>:</delimiter>
     <fields cardinality="8" prefix="o">
@@ -49,6 +57,61 @@
       </field>
     </fields>
   </datatype>
+  <datatype name="DIST">
+    <exclusive>
+      <option id="1">
+	<delimiter>:</delimiter>
+	<field id="asnumber">
+	  <bb>asNumber</bb>
+	  <range>
+	    <min>#x0000</min>
+	    <max>#xFFFF</max>
+	  </range>
+	</field>
+	<field id="number">
+	  <bb>Number</bb>
+	  <range>
+	    <min>#x00000000</min>
+	    <max>#xFFFFFFFF</max>
+	  </range>
+	</field>
+      </option>
+
+      <option id="2">
+	<delimiter>:</delimiter>
+	<field id="number">
+	  <bb>Number</bb>
+	  <range>
+	    <min>#x00000000</min>
+	    <max>#xFFFFFFFF</max>
+	  </range>
+	</field>
+	<field id="asnumber">
+	  <bb>asNumber</bb>
+	  <range>
+	    <min>#x0000</min>
+	    <max>#xFFFF</max>
+	  </range>
+	</field>
+      </option>
+
+      <option id="3">
+	<delimiter>:</delimiter>
+	<fieldDatatypeRef id="ipv4">IPV4</fieldDatatypeRef>
+	<field id="asnumber">
+	  <bb>asNumber</bb>
+	  <range>
+	    <min>#x0000</min>
+	    <max>#xFFFF</max>
+	  </range>
+	</field>
+	<field id="ipv4">
+	  <dtRef>IPV4</dtRef>
+	</field>
+      </option>
+      
+    </exclusive>
+  </datatype>
   <!--solver-parameters-->
   <solver>
     <path>/home/ebopaul/Documents/smt/z3-4.3.2.8ef4ec7009ab-x64-debian-7.4/bin/z3</path>
@@ -79,6 +142,20 @@
       </range>
     </q1>
   </dtMapping>
+  <dtMapping old="RouteDistinguisher" new="DIST"/>
+
+
+  <!-- strategy -->
+  <strategy>
+    <maxCoverage>
+      <value>4</value>
+      <unit>%</unit>
+    </maxCoverage>
+    <behavior>
+      <attributes>EXPLORE</attributes><!--BOUNDARY-->
+    </behavior>
+  </strategy>
+
   <!-- mp.xml to smt mapping -->
   <xml2SMTmapping xml="int16" smt="Int"/>
   <xml2SMTmapping xml="int32" smt="Int"/>

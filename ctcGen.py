@@ -26,13 +26,18 @@ def search(args):
 
     return searchComponent(xml_files, args.cls, args.mim)
 
+def getMaxCoverageToTest(annotations, coverage):
+    maxCov=annotations["strategy_maxCoverage"]
+    if upper(maxCov["unit"]) in ("%", "PERC", "PERCENT", "PERCENTAGE"):
+        return coverage * int(maxCov["value"]) /100
+    return int(maxCov["value"])
+
 """
 Create command: used to create test-cases
 """
 def create(args):
     start=time.time()
-    parse_obj=parseXML([open(s, "r") for s in args.files], args.annotation, args.prnt, args.debug, args.cls)
-    coverage=math.log(parse_obj.getCoverage())
+    parse_obj=parseXML([open(s, "r") for s in args.files], args.annotation, args.debug, args.cls)
     tokens={
         "COMMENT_CHAR": ";",
         "LE_BITVECTOR": "bvule",
@@ -54,14 +59,14 @@ def create(args):
 
     
     smt_facts=buildSMTLIBFacts(args.files, parse_obj, smtlib_gen)
-    print smt_facts.toSMTLIB()
+    #print smt_facts.toSMTLIB()
     
     if args.output:
         with open(args.output, "wb") as f:
             f.write(smt_facts.toSMTLIB())
 
     #process the SMTLIBFacts with the extracted SMT Solver command
-    generic_testcases=processSMTLIBFacts(coverage, smt_facts, parse_obj.solver_cmd, smtlib_gen)
+    generic_testcases=processSMTLIBFacts(parse_obj.coverage, parse_obj.goalCoverage, smt_facts, parse_obj.solver_cmd, smtlib_gen)
     
     end =time.time()
     if args.generic:
@@ -83,9 +88,8 @@ if __name__=="__main__":
     
     parser_create=subparsers.add_parser("create", help="create testcases")
     parser_create.add_argument("files", help="list of xml-files containing mim-definitions", nargs="+")
-    parser_create.add_argument("-d", "--debug", action="store_true", help="debug output")
-    parser_create.add_argument("-p", "--print", dest="prnt", action="store_true", help="print_output")
-    parser_create.add_argument("-g", "--generic", dest="generic", type=str, help="print generic test-cases to file")
+    parser_create.add_argument("-d", "--debug", action="store_true", help="ignores missing classes")
+    parser_create.add_argument("-g", "--generic", dest="generic", type=str, help="write generic test-cases to file")
     parser_create.add_argument("-c", "--class", dest="cls", type=str, help="only class to be parsed")
     parser_create.add_argument("-a", "--annotation", type=str, help="annotation-file")
     parser_create.add_argument("-o", "--output-file", dest="output", type=str, help="output-file for smt code")

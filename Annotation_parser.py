@@ -12,6 +12,7 @@ def getRanges(et):
         ret[fieldname]=ranges
     return ret
 
+
 def parse_annotation_file(file):
     annotations={}
     with open(file, "r") as f:
@@ -52,9 +53,31 @@ def parse_annotation_file(file):
                     
                 annotations["dt_"+dt_name]=fs
             else:
-                #TODO what about simplier datatypes, like "string" ---> covered in basic building blocks
-                print "ANNOTATION_PARSER: DUNO WHAT TO DO!"
-                exit()
+                #NASTY STUFF: no fields? probably an exclusive datatype
+                options={}
+                for option in dt.iter("option"):
+                    option_id=option.get("id")
+                    delimiter=option.find("delimiter").text
+                    produce_str=[]
+                    fields={}
+                    for field in option.iter("field"):
+                        if field.find("bb") is not None:
+                            bt=field.find("bb").text
+                        elif field.find("dtRef") is not None:
+                            bt=field.find("dtRef").text
+                        if field.find("range") is not None:
+                            rng=[field.find("range").find("min").text, field.find("range").find("max").text]
+                        vals={}
+                        vals["baseType"]=bt
+                        if rng:
+                            vals["range"]=rng
+                        fields[field.get("id")]=vals
+                        produce_str.append("field")
+                        produce_str.append(delimiter)
+                        
+                    options["option_"+option_id]={"delimiter":delimiter, "produce_string": produce_str[:-1], "fields": fields}
+                annotations["exdt_"+dt_name]=options
+
 
         #datatypeAnnotations
         for ann in root.findall("dtMapping"):
@@ -70,6 +93,16 @@ def parse_annotation_file(file):
         for arg in solver_root.findall("arg"):
            annotations["solver_arg{0}".format(i)]=arg.text
            i+=1
+
+        #strategy
+        strat=root.find("strategy")
+        for e in strat:
+            if e.tag=="maxCoverage":
+                val=e.find("value").text
+                unit=e.find("unit").text
+                annotations["strategy_maxCoverage"]={"value":val, "unit":unit}
+            if e.tag=="behavior":
+                annotations["behavior_attributes"]=e.find("attributes").text
     return annotations
                 
 
