@@ -49,9 +49,9 @@ def parse_annotation_file(file):
                         produce_str.append(delimiter)
                         #fs["delimiter_"+prefix+str(i)]=delimiter
 
-                fs["produce_string"]=produce_str
+#                fs["produce_string"]=produce_str
                     
-                annotations["dt_"+dt_name]=fs
+                annotations["dt_"+dt_name]={"fields": fs, "produce_string":produce_str, "delimiter":delimiter}
             else:
                 #NASTY STUFF: no fields? probably an exclusive datatype
                 options={}
@@ -76,7 +76,7 @@ def parse_annotation_file(file):
                         produce_str.append(delimiter)
                         
                     options["option_"+option_id]={"delimiter":delimiter, "produce_string": produce_str[:-1], "fields": fields}
-                annotations["exdt_"+dt_name]=options
+                annotations["exdt_"+dt_name]={"options":options}
 
 
         #datatypeAnnotations

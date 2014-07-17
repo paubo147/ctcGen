@@ -27,8 +27,12 @@ class ParserResult:
 
         self.xml2SMT={}
 
+        self.boundaries={}
         self.coverage=0
         self.goalCoverage=0
+
+    def addBoundary(self, name, values):
+        self.boundaries[name]=values
 
     def addMapping(self, old, new):
         self.xml2SMT[old]=new
@@ -229,25 +233,50 @@ def getMissingClasses(models):
 def checkDerivedDataTypes(p, mim, annotations):
     for dt in mim.xpath("derivedDataType"):
         dt_name=dt.get("name")
+        #print "BOUNDARIES", dt_name, 
         if dt_name in p.derivedTypes:
             #is it a special type?
             if "on_"+dt_name in annotations and dt_name not in p.oldNewTranslations:
+                boundaries={}
                 del p.derivedTypes[dt_name]
                 oldName=dt_name
                 newName=annotations["on_"+dt_name]["newName"]
+                if "ranges" in annotations["on_"+dt_name]:
+                    for field in annotations["on_"+dt_name]["ranges"]:
+                        boundaries[field]=Util.getBoundaries(None, annotations["on_"+dt_name]["ranges"][field])
                 p.addOldNewTranslation(dt_name, annotations["on_"+dt_name])
-                if "dt_"+newName in annotations and newName not in p.annotatedTypes:
-                    p.addAnnotatedType(newName, annotations["dt_"+newName])
-                    for bt in set(x["baseType"] for x in annotations["dt_"+newName].values() if "baseType" in x):
-                        if  bt not in p.buildingBlocks and "bb_"+bt in annotations:
-                            p.addBuildingBlock(bt, annotations["bb_"+bt])
-                if "exdt_"+newName in annotations and newName not in p.exclusiveTypes:
-                    p.addExclusiveType(newName, annotations["exdt_"+newName])
-                    for optionName in annotations["exdt_"+newName]:
-                        for field in annotations["exdt_"+newName][optionName]["fields"]:
-                            baseType = annotations["exdt_"+newName][optionName]["fields"][field]["baseType"]
+                if "dt_"+newName in annotations:
+                    if newName not in p.annotatedTypes:
+                        p.addAnnotatedType(newName, annotations["dt_"+newName])
+                    if "fields" in annotations["dt_"+newName]:
+                        #print annotations["dt_"+newName]["fields"]
+                        for field in sorted(annotations["dt_"+newName]["fields"]):
+                            baseType=annotations["dt_"+newName]["fields"][field]["baseType"]
+                            boundaries[field]=Util.getBoundaries(None, [annotations["dt_"+newName]["fields"][field]["range"]])
                             if baseType not in p.buildingBlocks and "bb_"+baseType in annotations:
                                 p.addBuildingBlock(baseType, annotations["bb_"+baseType])
+                    else:
+                        print "FIELDS MISSING ON DATATYPE {0}".format(newName)
+                elif "exdt_"+newName in annotations:
+                    if newName not in p.exclusiveTypes:
+                        p.addExclusiveType(newName, annotations["exdt_"+newName])
+                    if "options" in annotations["exdt_"+newName]:
+                        details=annotations["exdt_"+newName]["options"]
+                        for optionName in details:
+                            if "fields" in details[optionName]:
+                                for field in details[optionName]["fields"]:
+                                    baseType = details[optionName]["fields"][field]["baseType"]
+                                    if baseType not in p.buildingBlocks and "bb_"+baseType in annotations:
+                                        p.addBuildingBlock(baseType, annotations["bb_"+baseType])
+                                    boundaries[optionName+"_"+field]=Util.getBoundaries(None, [details[optionName]["fields"][field]["range"]])
+                            else:
+                                print "PARSER: FIELDS MISSING ON DATATYPE {0}".format(newName)
+                    else:
+                        print "NO OPTIONS ON {0}".format(newName)
+                else:
+                    print "NEITHER DT NOR EXDT {0} -> {1}".format(dt_name, newName)
+                #print "BOUNDARIES", dt_name, boundaries
+                p.addBoundary(newName, boundaries)
             else:
                 ddt_value={}
                 baseType=dt.find("baseType")
@@ -269,9 +298,13 @@ def checkDerivedDataTypes(p, mim, annotations):
 
                 if rnge:
                     ddt_value["range"]=rnge
-                    #boundaries=Util.getBoundaries(rnge)
+                p.addBoundary(dt_name, Util.getBoundaries(bt_name, rnge))
+                #print "BOUNDARIES", dt_name, Util.getBoundaries(bt_name, rnge)
+                
                 
                 p.addDerivedType(dt_name, ddt_value)
+        else:
+            print dt.find("baseType")
             
 def checkEnumDataTypes(p, mim, annotations):
     for e in mim.xpath("enum"):
@@ -281,12 +314,14 @@ def checkEnumDataTypes(p, mim, annotations):
             for em in e.xpath("enumMember"):
                 enum_members[em.get("name")]=em.find("value").text
             p.addEnumType(enum_name, enum_members)
-
+            #print "BOUNDARIES", enum_name, Util.getEnumBoundaries(enum_members.keys())
+            p.addBoundary(enum_name, Util.getEnumBoundaries(enum_members.keys()))
 
 def checkStructDataTypes(p, mim, annotations):
     for s in mim.xpath("struct"):
         struct_name=s.get("name")
         if struct_name in p.structTypes:
+            #print "BOUNDARIES", struct_name, "NOT DEFINED YET"
             struct_members=[]
             exclusive=(s.find("isExclusive") is not None)
                 
@@ -312,8 +347,10 @@ def checkStructDataTypes(p, mim, annotations):
                     else:
                         for r in datatype.iter("range"):
                             rnge.append([int(r.find("min").text), int(s.find("max").text)])
-                    if rnge:
-                        sm["range"]=rnge
+                    if not rnge:
+                        rnge=Util.get_name_range(typekey)[1]
+                    sm["range"]=rnge
+                    p.addBoundary(member.get("name"), Util.getBoundaries(None, rnge))
                 elif typekey == "moRef":
                     sm["dataType"]="string"
                 else:
@@ -325,8 +362,11 @@ def checkForMissingDataTypes(p, mim, annotations):
     checkStructDataTypes(p, mim, annotations)
     checkDerivedDataTypes(p, mim, annotations)
     checkEnumDataTypes(p, mim, annotations)
-    
-
+    #print p.boundaries
+    #for st in p.structTypes:
+    #    for st_mem in p.structTypes[st][1]:
+    #        print st_mem, 
+    #p.addBoundary(st, bd)
 """
 Parses the xml files as well as the annotation file. Has the option to create parse-tree with only one class
 

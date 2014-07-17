@@ -9,6 +9,7 @@ def get_random_string():
     return "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(size))
 
 def get_proper_int(s):
+    #print s
     ret=0
     try:
         ret=int(s)
@@ -39,16 +40,28 @@ def get_name_range(s):
     else:
         return (s, None)
 
-def getBoundaries(rnge):
-    boundaries=[]
-    n=3 #could be passed as a parameter
-    for rng in rnge:
-        b=rng[1]
-        a=rng[0]
-        division=(b-a)/float(n)
-        for i in range(n):
-            boundaries.append([a+i*division+(1 if i!=0 else 0),a+(i+1)*division])
-    return boundaries
+def getBoundaries(typ, rnge):
+    if rnge is not None:
+        boundaries=[]
+        n=3 #could be passed as a parameter
+        for rng in rnge:
+            b=get_proper_int(rng[1])
+            a=get_proper_int(rng[0])
+            division=(b-a)/float(n)
+            for i in range(n):
+                boundaries.append([int(a+i*division+(1 if i!=0 else 0)),int(a+(i+1)*division)])
+        return boundaries
+    elif typ is not None:
+        if typ == "boolean":
+            return [[True], [False]]
+    else:
+        print "boundaries not known for ",typ
+
+def getEnumBoundaries(members):
+    if len(members) < 10:
+        return [[m] for m in members]
+    else:  
+        return [[members[x[0]],members[x[1]]]for x in getBoundaries(None, [[0, len(members)-1]])]
 
 def get_pretty_XML(elem, indent=" "):
     return ET.tostring(elem, pretty_print=True)
