@@ -9,9 +9,6 @@ import Util
 
 class ParserResult:
     def __init__(self):
-        self.derivedTypes={}
-        self.enumTypes={}
-
         self.classes={}
         self.pc_relations=[]
         
@@ -324,7 +321,6 @@ def checkStructDataTypes(p, mim, annotations):
             #print "BOUNDARIES", struct_name, "NOT DEFINED YET"
             struct_members=[]
             exclusive=(s.find("isExclusive") is not None)
-                
             for member in s.xpath("structMember"):
                 #TODO default values?
                 sm={}
@@ -350,7 +346,8 @@ def checkStructDataTypes(p, mim, annotations):
                     if not rnge:
                         rnge=Util.get_name_range(typekey)[1]
                     sm["range"]=rnge
-                    p.addBoundary(member.get("name"), Util.getBoundaries(None, rnge))
+                    #TODO will not work if there are more entries of same type
+                    p.addBoundary(typekey, Util.getBoundaries(None, rnge))
                 elif typekey == "moRef":
                     sm["dataType"]="string"
                 else:
@@ -358,10 +355,16 @@ def checkStructDataTypes(p, mim, annotations):
                 struct_members.append(sm)
             p.addStructType(struct_name, exclusive, struct_members)
 
+
 def checkForMissingDataTypes(p, mim, annotations):
     checkStructDataTypes(p, mim, annotations)
     checkDerivedDataTypes(p, mim, annotations)
     checkEnumDataTypes(p, mim, annotations)
+    for st in p.structTypes:
+        bd={}
+        for mem in p.structTypes[st][1]:
+            bd[mem["dataType"]]=p.boundaries[mem["dataType"]]
+        p.addBoundary(st, bd)
     #print p.boundaries
     #for st in p.structTypes:
     #    for st_mem in p.structTypes[st][1]:
