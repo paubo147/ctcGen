@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import argparse
 import time
 import os
@@ -59,20 +61,21 @@ def create(args):
 
     
     smt_facts=buildSMTLIBFacts(args.files, parse_obj, smtlib_gen)
+    print smt_facts
     #print smt_facts.toSMTLIB()
     
-    if args.output:
-        with open(args.output, "wb") as f:
-            f.write(smt_facts.toSMTLIB())
+    #if args.output:
+    #    with open(args.output, "wb") as f:
+    #        f.write(smt_facts.toSMTLIB())
 
     #process the SMTLIBFacts with the extracted SMT Solver command
-    generic_testcases=processSMTLIBFacts(parse_obj.coverage, parse_obj.goalCoverage, smt_facts, parse_obj.solver_cmd, smtlib_gen)
+    #generic_testcases=processSMTLIBFacts(parse_obj.coverage, parse_obj.goalCoverage, smt_facts, parse_obj.solver_cmd, smtlib_gen)
     
     end =time.time()
-    if args.generic:
-        with open(args.generic, "w+") as f:
-            f.write(getXML(end-start, generic_testcases))
-        print "TESTCASES WRITTEN TO "+args.generic
+    #if args.generic:
+    #    with open(args.generic, "w+") as f:
+    #        f.write(getXML(end-start, generic_testcases))
+    #    print "TESTCASES WRITTEN TO "+args.generic
 
 
 

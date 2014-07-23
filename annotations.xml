@@ -119,7 +119,7 @@
   </solver>
   <!--datatype annotations-->
   <dtMapping old="RouterIdStr" new="IPV4">
-    <q1>
+    <!--<q1>
       <range>
 	<min>#x00</min>
 	<max>#x7E</max>
@@ -128,7 +128,7 @@
 	<min>#x80</min>
 	<max>#xDF</max>
       </range>	
-    </q1>
+    </q1>-->
   </dtMapping>
   <dtMapping old="Ipv4UnicastAddressStr" new="IPV4">
     <q1>

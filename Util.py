@@ -17,7 +17,7 @@ def get_proper_int(s):
         ret=int("0"+s[1:], 16)
     return ret
 
-def get_name_range(s):
+def getNameRange(s):
     name=""
     rang=""
     if "[" in s:
@@ -37,25 +37,27 @@ def get_name_range(s):
             return (s, [[0, (2**num)-1]])
         else:
             return (s, [[-(2**(num-1)), 2**(num-1)-1]])
+    elif s=="boolean":
+        return (s, [["true"], ["false"]])
     else:
-        return (s, None)
+        return (s, [])
 
 def getBoundaries(typ, rnge):
-    if rnge is not None:
-        boundaries=[]
-        n=3 #could be passed as a parameter
-        for rng in rnge:
-            b=get_proper_int(rng[1])
-            a=get_proper_int(rng[0])
-            division=(b-a)/float(n)
-            for i in range(n):
-                boundaries.append([int(a+i*division+(1 if i!=0 else 0)),int(a+(i+1)*division)])
-        return boundaries
-    elif typ is not None:
-        if typ == "boolean":
-            return [[True], [False]]
+    if typ=="boolean":
+        return [["true"], ["false"]]
+    elif typ=="string":
+        return [[]]
     else:
-        print "boundaries not known for ",typ
+        if rnge is not None:
+            boundaries=[]
+            n=3 #could be passed as a parameter
+            for rng in rnge:
+                b=get_proper_int(rng[1])
+                a=get_proper_int(rng[0])
+                division=(b-a)/float(n)
+                for i in range(n):
+                    boundaries.append([int(a+i*division+(1 if i!=0 else 0)),int(a+(i+1)*division)])
+            return boundaries
 
 def getEnumBoundaries(members):
     if len(members) < 10:

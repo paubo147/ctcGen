@@ -5,11 +5,12 @@ from lxml import etree as ET
 def getRanges(et):
     ret={}
     for p in et:
-        fieldname=p.tag
-        ranges=list()
-        for r in p.findall("range"):
-            ranges.append([r.find("min").text, r.find("max").text])
-        ret[fieldname]=ranges
+        if p.tag is not ET.Comment:
+            fieldname=p.tag
+            ranges=[]
+            for r in p.findall("range"):
+                ranges.append([r.find("min").text, r.find("max").text])
+            ret[fieldname]=ranges
     return ret
 
 
