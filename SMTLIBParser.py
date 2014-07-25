@@ -45,6 +45,8 @@ def t_ID(t):
     r"[a-zA-Z_-][a-zA-Z0-9_-]*"
     t.type=reserved.get(t.value, "ID")
     return t
+
+
 #PARSER SECTION
 """
 result         : LPAR MODEL fun_defs RPAR
@@ -58,7 +60,7 @@ arglist        : LPAR ID ID RPAR arglist
 fun_signature  : LPAR ID types RPAR
 types          : type types 
                | type
-type           : LPAR ID type RPAR 
+type           : LPAR ID types RPAR 
                | LPAR UNDERBAR BITVECTOR NUM RPAR 
                | BOOL 
                | ID 
@@ -123,7 +125,7 @@ def p_types_one(p):
     "types : type"
 
 def p_type(p):
-    "type           : LPAR ID type RPAR"
+    "type           : LPAR ID types RPAR"
 
 def p_type_int(p):
     "type : INT"
@@ -179,7 +181,7 @@ def p_plain_literal_bool(p):
     p[0]=p[1]
 
 def p_error(p):
-    print "ERROR:",p
+    print "ERROR: line",p.lineno
 
 
 def parse(s):
@@ -190,24 +192,30 @@ def parse(s):
     return outputs
 
 if __name__=="__main__":
-    s=''' (model 
-  (define-fun vRF_instance () (VRF (_ BitVec 32) (_ BitVec 32) (IPV4_dt (_ BitVec 8)) AdmState Int Int)
+    s='''(model 
+  (define-fun PeerIPv4_instance () (PeerIPv4 (IPV4_dt (_ BitVec 8))
+                                             Bool
+                                             (_ BitVec 32)
+                                             (SatelliteInfo_dt Int Int Int Int))
+    (mk_PeerIPv4 (mk_IPV4 #xbf #x00 #x00 #x00)
+             #x00000000
+             false
+             (mk_SatelliteInfo 1236 (- 25049) 0 38)))
+  (define-fun VRF_instance () (VRF (_ BitVec 32) DIST_dt (IPV4_dt (_ BitVec 8)) AdmState Int Int)
     (mk_VRF #x00000000
+        (option_2 #x0000 #x00000000)
         #x00000000
-        #x00000000
-        39
-        (- 2147475929)
-        (mk_IPV4 #x9f #x00 #x00 #x00)
+        1
+        (- 2147481211)
+        (mk_IPV4 #x00 #x00 #x00 #x00)
         AdmState_LOCKED))
-  (define-fun peerIPv4_instance () (PeerIPv4 Bool (_ BitVec 32) (IPV4_dt (_ BitVec 8)))
-    (mk_PeerIPv4 (mk_IPV4 #x9f #x01 #x00 #x00) #x00000000 false))
 )
 '''
     lexer=lex.lex()
     parser=yacc.yacc()
     
     lexer.input(s)
-    result=parser.parse(s)
+    parser.parse(s)
     print outputs
 
     #while True:

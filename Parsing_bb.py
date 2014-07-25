@@ -6,13 +6,14 @@ class DataType(object):
     The baseclass of all dataTypes. Contains:
      name : string representation of the name
     """
-    def __init__(self, name, typ):
+    def __init__(self, name, typ, isHead):
         self.name=name
         self.description=""
         self.ranges={}
         self.type=typ
         self.basetype=self.name
         self.level=0
+        self.isHead=isHead
 
     def setDescription(self, descr):
         self.description=descr
@@ -41,10 +42,11 @@ class GroundType(DataType):
     This type is the only one with direct mappings to SMTLIB code
     """
     def __init__(self, name, basetype, ranges):
-        super(GroundType, self).__init__(name, "GROUND")
+        super(GroundType, self).__init__(name, "GROUND", True)
         self.ranges=ranges
         self.level+=10
         self.basetype=basetype
+        self.boundaries=[]
         if ranges!=[]:
             self.boundaries=Util.getBoundaries(name, ranges)
           
@@ -55,10 +57,13 @@ class GroundType(DataType):
         if self.name in ("boolean", "string"):
             return {"NOT_DEFINED": []}
         else:
-            return {self.type: self.ranges}
+            return {self.name: self.ranges}
   
+    def getBoundaries(self):
+        return {self.name : self.boundaries}
+
     def getNumberOfTestCases(self):
-        return len(self.ranges)*3
+        return len(self.boundaries)
 
     def __iter__(self):
         return iter([])
@@ -75,16 +80,17 @@ class EnumType(DataType):
     An enum type is on the edge between ground type and container type. It does not contain one or more other types
     but members with values. It also contains information about the mim it is stored in.
     """
-    def __init__(self, name, mim):
-        super(EnumType, self).__init__(name, "ENUM")
+    def __init__(self, name, mim, isHead):
+        super(EnumType, self).__init__(name, "ENUM", isHead)
         self.mim=mim
         self.members={}
         self.level+=10
         self.basetype="NOT_DEFINED"
-        
+        self.boundaries=[]
 
     def addEnumMember(self, name, value):
         self.members[name]=value
+        self.boundaries.append([name])
 
     def getRanges(self):
         self.ranges=[[m] for m in self.members]
@@ -92,10 +98,13 @@ class EnumType(DataType):
 
     def getAssertableRanges(self):
         return {self.basetype :[]}
-
+    
+    def getBoundaries(self):
+        return {self.name:self.boundaries}
 
     def getNumberOfTestCases(self):
-        return len(self.ranges)
+        #print "ENUM", len(self.boundaries)
+        return len(self.boundaries)
 
     def __contains__(self, key):
         return key in self.members
@@ -116,8 +125,8 @@ class ContainerType(DataType):
             
 
 
-    def __init__(self, name, mim, typ):
-        super(ContainerType, self).__init__(name, typ)
+    def __init__(self, name, mim, typ, isHead):
+        super(ContainerType, self).__init__(name, typ, isHead)
         self.mim=mim
         self.content={}
         self.level+=1
@@ -125,8 +134,8 @@ class ContainerType(DataType):
 
     def addDataType(self, name, dataType):
         self.content[name]=dataType
-        dataType.level+=self.level
-        self.basetype=dataType.basetype
+        dataType.level+=self.level            
+        
 
     def __str__(self):
         return str(self.level)+" "+super(ContainerType, self).__str__()
@@ -137,17 +146,24 @@ class StructType(ContainerType):
     A struct is a fixed, ordered collection of other types of any kind. 
     The types are either exclusive (comparable with union in C) or not. 
     """
-    def __init__(self, name, mim):
-        super(StructType, self).__init__(name, mim, "STRUCT")
+    def __init__(self, name, mim, isHead):
+        super(StructType, self).__init__(name, mim, "STRUCT", isHead)
         self.isExclusive=False
+        self.isTop=False
 
     
     def setExclusive(self):
         self.isExclusive=True
 
+
+    def addDataType(self, n, t):
+        super(StructType, self).addDataType(n, t)
+        if t.type=="STRUCT":
+            t.isTop=False
+
     def getRanges(self):
-        self.ranges={x: self.content[x].getRanges() for x in self.content}
-        return {self.name : self.ranges}
+        self.ranges={x:self.content[x].getRanges() for x in self.content}
+        return self.ranges
 
     def getAssertableRanges(self):
         return self.getRanges()
@@ -158,8 +174,12 @@ class StructType(ContainerType):
         else:
             return reduce(lambda x,y: x*y, [self.content[x].getNumberOfTestCases() for x in self.content])
             
+    def getBoundaries(self):
+        self.boundaries={x: self.content[x].getBoundaries() for x in sorted(self.content)}
+        return self.boundaries
 
     def __str__(self):
+        return str(self.content)
         s=["STRUCT"]
         if self.isExclusive:
             s.append("(X)")
@@ -175,37 +195,76 @@ class DerivedType(ContainerType):
     """
     Placeholder for one other DataType. Might be replaced.
     """
-    def __init__(self, name, mim):
-        super(DerivedType, self).__init__(name, mim, "DERIVED")
+    def __init__(self, name, mim, isHead):
+        super(DerivedType, self).__init__(name, mim, "DERIVED", isHead)
         self.annotated=False
         self.additionalRanges={}
         self.fixedRanges=False
+        self.boundaries={}
 
     def hasFixedRanges(self):
         self.fixedRanges=True
         
     def addDataType(self, name, dataType):
         super(DerivedType, self).addDataType(0, dataType)
+        self.basetype=dataType.basetype
         
 
-    def addRange(self, name, ranges):
-        self.additionalRanges[name]=ranges
+    def addRange(self, name, accessor, ranges):
+        self.additionalRanges[name]={accessor:ranges}
+        if self.fixedRanges:
+            self.fixedRanges=False
+            self.getBoundaries()
+            self.fixedRanges=True
 
     def getRanges(self):
+        #self.ranges=self.content[0].getRanges()
         if not self.fixedRanges:
             self.ranges=self.content[0].getRanges()
             if self.additionalRanges:
                 for r in self.additionalRanges:
-                    self.ranges[r]=self.additionalRanges[r]
+                    for a in self.additionalRanges[r]:
+                        temptyp=self.ranges[a].keys()[0]
+                        self.ranges[a]={temptyp:self.additionalRanges[r][a]}
+                        #print "ADDRANGES: replace ", self.ranges[r][a], "with", self.additionalRanges[r][a],"ENDADDRANGES"
+                    #self.ranges[r]=self.ranges[self.additionalRanges[r]
         return self.ranges
 
     def getAssertableRanges(self):
-        return self.content[0].getAssertableRanges()
+        if not self.fixedRanges:
+            self.ranges=self.content[0].getAssertableRanges()
+            if self.additionalRanges:
+                for r in self.additionalRanges:
+                    for a in self.additionalRanges[r]:
+                        #print "HELLO", r, a, self.additionalRanges[r][a]
+                        temptyp=self.ranges[a].keys()[0] #HACK. Not sure if this will always work
+                        self.ranges[a]={temptyp:self.additionalRanges[r][a]}
+                        #print "ADDRANGES: replace ", self.ranges[r][a], "with", self.additionalRanges[r][a],"ENDADDRANGES"
+                    #self.ranges[r]=self.ranges[self.additionalRanges[r]
+        return self.ranges
+    
+    def getBoundaries(self):
+        if not self.fixedRanges:
+            self.boundaries=self.content[0].getBoundaries()
+            if self.additionalRanges:
+                for r in self.additionalRanges:
+                    for a in self.additionalRanges[r]:
+                        if self.content[0].type=="GROUND": #CHECK FOR ENUMS
+                            temptyp=a
+                        else:
+                            temptyp=self.boundaries[a].keys()[0]
+                        #print "DERIVED", temptyp, self.content[0].type, self.boundaries[a]
+                        self.boundaries[a]={temptyp:Util.getBoundaries(r, self.additionalRanges[r][a])}
+                        #print "ADDRANGES: replace ", self.ranges[r][a], "with", self.additionalRanges[r][a],"ENDADDRANGES"
+                    #self.ranges[r]=self.ranges[self.additionalRanges[r]
+        return self.boundaries
+        
 
     def setAnnotated(self):
         self.annotated=True
 
     def getNumberOfTestCases(self):
+        #print "DERVIED", self.name, self.content[0].getNumberOfTestCases()
         return self.content[0].getNumberOfTestCases()
 
 
@@ -319,10 +378,10 @@ class ClassNode:
         return key in self.settings
 
     def getNumberOfTestCases(self):
-        m=1
-        for x in self.attributes:
-            m*=x.getNumberOfTestCases()
-        return m
+        #print "CLASS", self.name
+        #for a in self.attributes:
+        #    print "\tATTR", a.name, a.getNumberOfTestCases()
+        return reduce(lambda x,y:x*y.getNumberOfTestCases(), self.attributes, 1)
         
     #def setSystemCreated(self):
     #    self.isSystemCreated=True

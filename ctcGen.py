@@ -9,7 +9,8 @@ from ComponentSearcher import searchComponent
 
 from Parser import parseXML
 from SMTLIBBuilder import buildSMTLIBFacts
-from ctcGatherer import processSMTLIBFacts, getXML
+import ctcGatherer
+import SMTController
 
 from SMTLIBCodeGenerator import *
 
@@ -61,21 +62,21 @@ def create(args):
 
     
     smt_facts=buildSMTLIBFacts(args.files, parse_obj, smtlib_gen)
-    print smt_facts
-    #print smt_facts.toSMTLIB()
     
-    #if args.output:
-    #    with open(args.output, "wb") as f:
-    #        f.write(smt_facts.toSMTLIB())
-
+    
+    if args.output:
+        with open(args.output, "wb") as f:
+            f.write(smt_facts)
+    setattr(ctcGatherer, "overallTestCases", parse_obj.getNumberOfTestCases())
+    SMTController.run(parse_obj, smt_facts, parse_obj.solver_cmd)
     #process the SMTLIBFacts with the extracted SMT Solver command
-    #generic_testcases=processSMTLIBFacts(parse_obj.coverage, parse_obj.goalCoverage, smt_facts, parse_obj.solver_cmd, smtlib_gen)
+    #generic_testcases=processSMTLIBFacts(smt_facts, parse_obj.solver_cmd, smtlib_gen)
     
-    end =time.time()
+    #end =time.time()
     #if args.generic:
     #    with open(args.generic, "w+") as f:
     #        f.write(getXML(end-start, generic_testcases))
-    #    print "TESTCASES WRITTEN TO "+args.generic
+    #w    print "TESTCASES WRITTEN TO "+args.generic
 
 
 

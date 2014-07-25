@@ -15,6 +15,7 @@ class ParserResult:
 
         self.stringPresent=False
         self.dataTypes={}
+        self.delimiter={}
 
         #self.derivedTypes={}
         #self.enumTypes={}
@@ -34,6 +35,9 @@ class ParserResult:
 
     def stringIsPresent(self):
         self.stringPresent=True
+        
+    def addDelimiter(self, typ, delimiter):
+        self.delimiter[typ]=delimiter
 
     def addDataType(self, name, dt):
         self.dataTypes[name]=dt
@@ -141,22 +145,22 @@ def registerDataType(p, typekey, dtName, mimName, name, func_obj):
             p.stringIsPresent()
     elif typekey == "derivedDataTypeRef":
         if dat is None:
-            dat=DerivedType(dtName, mimName)
+            dat=DerivedType(dtName, mimName, True)
             p.addDataType(dtName, dat)
         func_obj(name, dat)
     elif typekey =="enumRef":
         if dat is None:
-            dat=EnumType(dtName,mimName)
+            dat=EnumType(dtName,mimName, True)
             p.addDataType(dtName, dat)
         func_obj(name, dat)
     elif typekey == "structRef":
         if dat is None:
-            dat=StructType(dtName, mimName)
+            dat=StructType(dtName, mimName, True)
             p.addDataType(dtName, dat)
         func_obj(name, dat)
     elif typekey == "sequence": #NOT DEFINED YET
         if dat is None:
-            dat=SequenceType(dtName, mimName)
+            dat=SequenceType(dtName, mimName, True)
             p.addDataType(dtName, dat)
         func_obj(name, dat)
     else:
@@ -256,9 +260,10 @@ def manageAnnotatedDataTypes(p, annotations, typ, name, bt, ranges):
         if typ in p.dataTypes:
             dt=p.dataTypes[typ]
         else:
-            dt=StructType(typ, "annotated")
+            dt=StructType(typ, "annotated", True)
             #print "DT: ADDING {0} TO PARSER".format(typ)
             p.addDataType(typ, dt)
+            p.addDelimiter(typ, annotations["dt_"+typ]["delimiter"])
         if name not in bt.content:
             #print "DT: ADDING {0} TO {1}".format(dt.name, bt.name)
             bt.addDataType(name, dt)
@@ -268,10 +273,11 @@ def manageAnnotatedDataTypes(p, annotations, typ, name, bt, ranges):
                 ranges=annotations["dt_"+typ]["fields"][field]["range"]
                 manageAnnotatedDataTypes(p, annotations, baseType, field, dt, ranges) #RECURSION
     elif "exdt_"+typ in annotations:
+        #print "ANNOTATED", typ
         if typ in p.dataTypes:
             dt=p.dataTypes[typ]
         else:
-            dt=StructType(typ, "annotated")
+            dt=StructType(typ, "annotated", True)
             dt.setExclusive()
             #print "EXDT: ADDING {0} TO PARSER".format(typ)
             p.addDataType(typ, dt)
@@ -285,11 +291,13 @@ def manageAnnotatedDataTypes(p, annotations, typ, name, bt, ranges):
                     if optionName in p.dataTypes:
                         dto=p.dataTypes[optionName]
                     else:
-                        dto=StructType(optionName, None)
-                        #p.addDataType(optionName, dto)
-              #          print "EXDT: ADDING {0} TO PARSER".format(optionName)
+                        #print "ADDING ",optionName
+                        dto=StructType(optionName, None, False)
+                        p.addDataType(optionName, dto)
+                        p.addDelimiter(optionName, annotations["exdt_"+typ]["options"][optionName]["delimiter"])
+                        #print "EXDT: ADDING {0} TO PARSER".format(optionName)
                     if optionName not in dt.content:
-              #          print "EXDT: ADDING {0} TO {1}".format(optionName, dt.name)
+                        #print "EXDT: ADDING {0} TO {1}".format(optionName, dt.name)
                         dt.addDataType(optionName, dto)
                     for field in details["options"][optionName]["fields"]:
                         baseType=annotations["exdt_"+typ]["options"][optionName]["fields"][field]["baseType"]
@@ -327,7 +335,7 @@ def checkDerivedDataTypes(p, mim, annotations):
                     ranges=annotations["on_"+dt_name]["ranges"]
                     for rng in ranges:
                         #print "RANGE FOUND {0} {1} {2}: {3}".format(dt_name, newName, rng, ranges[rng])
-                        p.dataTypes[dt_name].addRange(rng, ranges[rng])
+                        p.dataTypes[dt_name].addRange(newName, rng, ranges[rng])
             else:#just a derived Datatype, not annotated
                 baseType=dt.find("baseType")
                 bt_name=baseType[0].tag
@@ -335,7 +343,7 @@ def checkDerivedDataTypes(p, mim, annotations):
                 rng=baseType[0].find("range")
                 if rng is not None:
                     dat.hasFixedRanges()
-                    dat.ranges=[[int(rng.find("min").text), int(rng.find("max").text)]]
+                    dat.addRange(dt_name, bt_name, [[int(rng.find("min").text), int(rng.find("max").text)]])
             
         else:
             print "DATATYPE NOT USED:", dt_name

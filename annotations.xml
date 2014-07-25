@@ -9,9 +9,9 @@
     <smt>(_ BitVec 8)</smt>
   </buildingBlock>
 
-  <buildingBlock name="String" type="bitvector">
+  <!--<buildingBlock name="String" type="bitvector">
     <smt>(_ BitVec 32)</smt>
-  </buildingBlock>
+  </buildingBlock>-->
 
   <buildingBlock name="asNumber" type="bitvector">
     <smt>(_ BitVec 16)</smt>
@@ -165,6 +165,6 @@
   <xml2SMTmapping xml="uint32" smt="Int"/>
   <xml2SMTmapping xml="uint64" smt="Int"/>
   <xml2SMTmapping xml="boolean" smt="Bool"/>
-  <xml2SMTmapping xml="string" smt="String"/>
+  <xml2SMTmapping xml="string" smt="(_ BitVec 32)"/>
 </annotations>
 
