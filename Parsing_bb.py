@@ -378,10 +378,12 @@ class ClassNode:
         return key in self.settings
 
     def getNumberOfTestCases(self):
-        #print "CLASS", self.name
-        #for a in self.attributes:
-        #    print "\tATTR", a.name, a.getNumberOfTestCases()
         return reduce(lambda x,y:x*y.getNumberOfTestCases(), self.attributes, 1)
+
+    def getBoundaries(self):
+        print self.name
+        for a in self.attributes:
+            print "\t", a.name, a.dataType.getBoundaries()
         
     #def setSystemCreated(self):
     #    self.isSystemCreated=True
