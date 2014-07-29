@@ -95,6 +95,14 @@ def parse_annotation_file(file):
            annotations["solver_arg{0}".format(i)]=arg.text
            i+=1
 
+        tokens=solver_root.findall("tokens")[0]
+        if tokens is not None:
+            for token in tokens.iter("token"):
+                annotations["token_{0}".format(token.get("name"))]=token.text
+        else:
+            print "TOKENS_NOT FOUND", solver_root.find("tokens")
+            
+
         #strategy
         strat=root.find("strategy")
         for e in strat:

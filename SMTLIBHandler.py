@@ -1,7 +1,6 @@
 import Parsing_bb
 import SMTLIBAssertionHandler
 
-
 settings={
     Parsing_bb.GroundType : { "sortkey" : 4, "name" : "BASIC SORTS"},
     Parsing_bb.DerivedType : {"sortkey" : 3, "name" : "DERIVED TYPES"},
@@ -17,20 +16,17 @@ def name(t):
 
 
 def initClassNodeSMT(t, parse_obj):
+    print "SETTING UP CLASS NODE {0}".format(t.name)
     t.constructor="mk_{0}".format(t.name)
     t.instance_function="{0}_instance".format(t.name)
     t.attr_type_set=set()
     t.attribute_string=[]
-    #t.getBoundaries()
-    for a in t.attributes:
-        if a.name=="ttl":
-            print a, a.dataType.name, a.dataType.content[0].name, a.dataType.fixedRanges, a.dataType.getBoundaries()
 
+    for a in t.attributes:
+        
         t.attr_type_set.add(a.dataType.name)
         t.attribute_string.append("({0} {1})".format(a.name, a.dataType.name))
-        #print "RANGES", a.name, a.dataType.getRanges()
-        #print "BOUNDARIES", a.name, a.dataType.getBoundaries()
-        SMTLIBAssertionHandler.addBoundary(a.name, a.dataType.getBoundaries())
+        #SMTLIBAssertionHandler.addBoundary(a.name, a.dataType.getBoundaries())
         SMTLIBAssertionHandler.addConstantAssertion(t.name, 
                                                     t.instance_function, 
                                                     a.name, 
@@ -41,44 +37,90 @@ def initClassNodeSMT(t, parse_obj):
 
 
 def initGroundTypeSMT(t, p):
+    print "SETTING UP GROUND TYPE {0}".format(t.name)
     #print "WAS HERE", t.name
     def transformDirect(x):
+        t.annotatedValue=x
         return x
 
     def transformHex(x):
-        return str(int("0"+x[1:], 16))
+        #print id(t), t.name, "transforming", x, "to", str(int("0"+x[1:], 16))
+        t.annotatedValue=str(int("0"+x[1:], 16))
+        return int("0"+x[1:], 16)
 
-    if t.basetype in ("Bool", "Int"):
-        t.transform=transformDirect
-    elif "BitVec" in t.basetype or "bitvector"==t.basetype:#only workaround
+    def transformNum(x):
+        t.annotatedValue=x
+        return int(x)
+
+    def intToHex(i, n):
+        plain_string=str(hex(i))[2:]
+        ps=plain_string.zfill(n)
+        return "#x{0}".format(ps)
+    
+    #boundaries
+    def getSMTBoundaries(llst):
+        if t.basetype=="bitvector":
+            return [[intToHex(x[0], t.bits), intToHex(x[1], t.bits)] for x in llst]
+        else:
+            return llst
+
+    t.getSMTBoundaries=getSMTBoundaries
+
+    if t.basetype =="Int":
+        t.transform=transformNum
+    elif "bitvector"==t.basetype:#only workaround
         t.transform=transformHex
     else:
-        raise Exception("No function definition for ", t.basetype, t.name, t.type)
-
+        t.transform=transformDirect
+        
 
 def initDerivedTypeSMT(t, p):
-    t.transform={t.name:t.content[0].transform}
+    print "SETTING UP DERIVED TYPE {0}".format(t.name)
+    def transformDerivedType(x):
+        temp=t.content[0].transform(x)
+        t.annotatedValue=t.content[0].annotatedValue
+        return temp
+
+    t.transform=transformDerivedType
+    #t.annotatedValue=t.content[0].annotatedValue
 
 def initEnumTypeSMT(t, p):
+    print "SETTING UP ENUM TYPE {0}".format(t.name)
     def transformEnum(x):
-        return {t.name:x[x.find("_")+1:]}
+        t.annotatedValue={t.name:x}
+        return x[x.find("_")+1:]
 
 
-    t.smtMembers=[t.name+"_"+x for x in t.members.keys()]
+    def getSMTBoundaries(llst):
+        if t.basetype=="ENUM":
+            return [[t.name+"_"+x[0]] for x in llst]
+
+    t.getSMTBoundaries=getSMTBoundaries
+    #t.smtMembers=[t.name+"_"+x for x in t.members.keys()]
     t.transform=transformEnum
 
 def initStructTypeSMT(t, p):
+    print "SETTING UP STRUCT TYPE {0}".format(t.name)
     def transformStructExclusive(x):
-        return t.content[x[0]].transform(x)
+        temp=t.content[x[0]].transform(x)
+        t.annotatedValue=t.content[x[0]].annotatedValue
+        return temp
 
     def transformStruct(x):
         if t.name in p.delimiter:
             delim=p.delimiter[t.name]
         else:
-            delim="   "#FOR GENERAL STRUCTS (default value)
-        tmp= zip(t.content.values(), x[1:])
-        
-        #return delim.join(s[0].transform(s[1]) for s in tmp)
+            delim="   "#FOR GENERAL STRUCTS (default value) 
+        tmp=[]
+        annVal=[]
+        i=1
+        for c in t.sortkey:
+            tmp.append((t.content[c], x[i]))
+            annVal.append((c, x[i]))
+            i+=1
+        t.annotatedValue={t.name:dict(annVal)}
+        ret=delim.join(str(s[0].transform(s[1])) for s in tmp)
+        return ret
             
         
     t.mk_name="mk_{0}".format(t.name)
@@ -108,15 +150,13 @@ def initStructTypeSMT(t, p):
         t.transform=transformStruct
 
 def getGroundTypeSMT(t, smtgen, parse_obj):
-    if t.level > 1:
-        return smtgen.get_smt_sort(t.name, parse_obj.xml2SMT[t.name])
-    return ""
+    return smtgen.get_smt_sort(t.name, parse_obj.xml2SMT[t.name])
 
 def getDerivedTypeSMT(t, smtgen, parse_obj):
     return smtgen.get_smt_sort(t.name, t.content[0].name)
 
 def getEnumTypeSMT(t, smtgen, parse_obj):
-    return smtgen.get_smt_datatypes("", t.name+" "+(" ".join(t.smtMembers)))
+    return smtgen.get_smt_datatypes("", t.name+" "+(" ".join(t.members.keys())))
 
 def getStructTypeSMT(t, smtgen, parse_obj):
     if not t.isHead:
@@ -133,6 +173,9 @@ def getStructTypeSMT(t, smtgen, parse_obj):
         return_value="({0} {1})".format(t.pseudo_name, datatypes)
     return "\n".join([smtgen.get_smt_datatypes(datatypes, " ".join(definition)), smtgen.get_smt_sort(t.name, return_value)])
 
+
+
+
 def getClassNodeSMT(t, smtgen):
     ret=[smtgen.get_smt_datatypes(" ".join(t.attr_type_set), 
                                   "".join([t.name,
@@ -148,8 +191,25 @@ def getClassNodeSMT(t, smtgen):
                                     t.name, 
                                     " ".join(t.attr_type_set)),
          "\n"]
-    for a in SMTLIBAssertionHandler.constantAssertions[t.name]:
+    for a in sorted(SMTLIBAssertionHandler.constantAssertions[t.name]):
         ca=SMTLIBAssertionHandler.constantAssertions[t.name][a]
         ret.append(smtgen.get_smt_range_assertion(a, ca["type"], ca["ranges"]))
     ret.append("\n")
     return "".join(ret)
+
+
+def getAssertion(a, smtgen):
+    yesNo="_not" if a.neg else ""
+    howmanyType="_value" 
+    if a.typ in ("INT", "BITVECTOR"):
+            howmanyType="_range"
+    st="get_smt{0}{1}_assertion".format(yesNo, howmanyType)
+    func=getattr(smtgen, st)
+    #print func(a.field, a.typ, a.lst)
+    return func(a.field, a.typ, a.lst)
+
+
+def testerAssertionsIter():
+    for a in SMTLIBAssertionHandler.testerAssertions:
+        setattr(a.__class__, "getSMT", getAssertion)
+        yield a

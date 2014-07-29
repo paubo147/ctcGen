@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <annotations>
-  <!-- datatype section under construction. Will not be parsed by anyone/anything-->
   <buildingBlock name="vec16bit" type="bitvector">
     <smt>(_ BitVec 16)</smt>
   </buildingBlock>
@@ -9,10 +8,6 @@
     <smt>(_ BitVec 8)</smt>
   </buildingBlock>
 
-  <!--<buildingBlock name="String" type="bitvector">
-    <smt>(_ BitVec 32)</smt>
-  </buildingBlock>-->
-
   <buildingBlock name="asNumber" type="bitvector">
     <smt>(_ BitVec 16)</smt>
   </buildingBlock>
@@ -20,6 +15,43 @@
   <buildingBlock name="Number" type="bitvector">
     <smt>(_ BitVec 32)</smt>
   </buildingBlock>
+
+  <buildingBlock name="int16" type="int">
+    <smt>Int</smt>
+  </buildingBlock>
+
+  <buildingBlock name="int32" type="int">
+    <smt>Int</smt>
+  </buildingBlock>
+
+  <buildingBlock name="int64" type="int">
+    <smt>Int</smt>
+  </buildingBlock>
+
+  <buildingBlock name="uint8" type="int">
+    <smt>Int</smt>
+  </buildingBlock>
+  
+  <buildingBlock name="uint16" type="int">
+    <smt>Int</smt>
+  </buildingBlock>
+  
+  <buildingBlock name="uint32" type="int">
+    <smt>Int</smt>
+  </buildingBlock>
+
+  <buildingBlock name="uint64" type="int">
+    <smt>Int</smt>
+  </buildingBlock>
+
+  <buildingBlock name="boolean" type="bool">
+    <smt>Bool</smt>
+  </buildingBlock>
+
+  <buildingBlock name="string" type="bitvector">
+    <smt>(_ BitVec 32)</smt>
+  </buildingBlock>
+
 
   <datatype name="IPV6">
     <delimiter>:</delimiter>
@@ -116,6 +148,28 @@
   <solver>
     <path>/home/ebopaul/Documents/smt/z3-4.3.2.8ef4ec7009ab-x64-debian-7.4/bin/z3</path>
     <arg>-smt2</arg>
+
+    <tokens>
+      <token name="COMMENT_CHAR">;</token>
+      <token name="LE_BITVECTOR">bvule</token>
+      <token name="L_BITVECTOR">bvult</token>
+      <token name="GE_BITVECTOR">bvuge</token>
+      <token name="G_BITVECTOR">bvugt</token>
+      <token name="LE_INT">&lt;=</token>
+      <token name="L_INT">&lt;</token>
+      <token name="GE_INT">&gt;=</token>
+      <token name="G_INT">&gt;</token>
+      <token name="EQ">=</token>
+      <token name="NOT">not</token>
+      <token name="BINARY_EXPRESSION">({0} {1} {2})</token>
+      <token name="UNARY_EXPRESSION">({0} {1})</token>
+      <token name="ASSERTION">(assert {0})</token>
+      <token name="AND">and</token>
+      <token name="OR">or</token>
+      <token name="DEFINE_SORT">(define-sort {0} () {1})</token>
+      <token name="DECLARE_DATATYPES">(declare-datatypes ({0}) (({1})))</token>
+      <token name="DECLARE_FUN">(declare-fun {0} ({1}) ({2} {3}))</token>
+    </tokens>
   </solver>
   <!--datatype annotations-->
   <dtMapping old="RouterIdStr" new="IPV4">

@@ -1,11 +1,11 @@
 from lxml import etree as ET
-from Parsing_bb import *
-from TagFinder import *
-from Annotation_parser import *
-from Coverage import computeCoverage
+import re
 
-import math
+from Parsing_bb import GroundType, DerivedType, StructType, EnumType, ClassNode, AttrNode
+from TagFinder import findTag
+
 import Util
+import Annotation_parser
 
 class ParserResult:
     def __init__(self):
@@ -30,8 +30,12 @@ class ParserResult:
         self.xml2SMT={}
 
         self.boundaries={}
-        self.coverage=0
-        self.goalCoverage=0
+        self.solver_tokens={}
+
+        
+    def addSolverToken(self, n, v):
+        self.solver_tokens[n]=v
+
 
     def stringIsPresent(self):
         self.stringPresent=True
@@ -47,9 +51,6 @@ class ParserResult:
 
 
 
-    def addBoundary(self, name, values):
-        self.boundaries[name]=values
-
     def addMapping(self, old, new):
         self.xml2SMT[old]=new
 
@@ -59,48 +60,11 @@ class ParserResult:
     def addPCRelation(self, p, c):
         self.pc_relations.append((p,c))
     
-    def addOldNewTranslation(self, k, v):
-        self.oldNewTranslations[k]=v
-
-    def addAnnotatedType(self, k, v):
-        self.annotatedTypes[k]=v
-
-    def addExclusiveType(self, k, v):
-        self.exclusiveTypes[k]=v
-
-    def addBuildingBlock(self, k, v):
-        self.buildingBlocks[k]=v
-
-    def addDerivedType(self, k, v):
-        self.derivedTypes[k]=v
-
-    def addEnumType(self, k, v):
-        self.enumTypes[k]=v
-
-    def addStructType(self, k, exclusive, v):
-        self.structTypes[k]=(exclusive, v)
-
     def addSolverSettings(self, cmd, args):
         self.solver_cmd=[cmd]+args
 
     def getNumberOfTestCases(self):
         return sum(x.getNumberOfTestCases() for x in self.classes.values())
-
-
-#annotations={}
-
-#enumsToResolve=[]
-#datatypesToResolve=[]
-#structsToResolve=[]
-
-#derivedTypes={}
-#enumTypes={}
-
-#classes={}
-#structs={}
-#associations={}
-validValues={}
-#pc_list=[]
 
 
 def checkSettings(attribute, a):
@@ -181,11 +145,11 @@ def parseAttributes(p, bb, xml, annotations):
         if dt[0].find("range"):
             print "ADDITIONAL RANGE FOR", a.get("name"), "NOT TAKEN INTO ACCOUNT"
 
-        if dt[0].find("defaultValue") is not None:
-            an["defaultValue"]=list(dt)[0].find("defaultValue").text
+        #if dt[0].find("defaultValue") is not None:
+        #    an["defaultValue"]=list(dt)[0].find("defaultValue").text
 
-        if typekey in validValues:
-            an["validValues"]=validValues[typekey]
+        #if typekey in validValues:
+        #    an["validValues"]=validValues[typekey]
 
         checkSettings(an, a)
         bb.addAttribute(an)
@@ -311,8 +275,11 @@ def manageAnnotatedDataTypes(p, annotations, typ, name, bt, ranges):
         if typ in p.dataTypes:
             dt=p.dataTypes[typ]
         else:
+            #rint typ, annotations["bb_"+typ]["type"], [ranges]
             dt=GroundType(typ, annotations["bb_"+typ]["type"], [ranges])
             p.addDataType(typ, dt)
+            if dt.basetype=="bitvector":
+                dt.bits=int(re.findall(r"\d+", annotations["bb_"+typ]["smtType"])[0])/4
             #print "BASIC: ADDING {0} TO PARSER ({1})".format(typ, [ranges])
         if name not in bt.content:
             bt.addDataType(name, dt)
@@ -409,7 +376,7 @@ def parseXML(xml_files, annotation_file, debugMode=False, onlyClass=None):
     #Parse annotation file before the classes are parsed
     annotations={}
     if annotation_file:
-        annotations=parse_annotation_file(annotation_file)
+        annotations=Annotation_parser.parse_annotation_file(annotation_file)
 
     #XML 2 SMTLIB datatypes
     for m in [x for x in annotations if "mapping" in x]:
@@ -420,11 +387,14 @@ def parseXML(xml_files, annotation_file, debugMode=False, onlyClass=None):
 
     #PUT SOLVER INFORMATION TO THE PARSER RESULT
     if len([x for x in annotations if "solver" in x]) > 0:
-        p.addSolverSettings(annotations["solver_path"], [annotations[x] for x in annotations if "solver_arg" in x])
-    else:
-        p.addSolverSettings("/home/ebopaul/Documents/smt/z3-4.3.2.8ef4ec7009ab-x64-debian-7.4/bin/z3", ["-smt2"])
+                    p.addSolverSettings(annotations["solver_path"], [annotations[x] for x in annotations if "solver_arg" in x])
+    #else:
+    #    p.addSolverSettings("/home/ebopaul/Documents/smt/z3-4.3.2.8ef4ec7009ab-x64-debian-7.4/bin/z3", ["-smt2"])
 
-
+    for x in annotations:
+        if "token_" in x:
+            p.addSolverToken(x[6:], annotations[x])
+            
     
     #parse all classes 
     for mim in findTag(models, "mim"):

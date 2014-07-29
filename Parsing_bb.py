@@ -24,14 +24,17 @@ class DataType(object):
     def __repr__(self):
         return str(self)
 
-    def getRanges(self):
-        pass
+    #def getRanges(self):
+    #    pass
 
     def getAssertableRanges(self):
         pass
 
     def getNumberOfTestCases(self):
         pass
+
+    def increaseLevel(self):
+        self.level+=2
     
         
 
@@ -44,14 +47,14 @@ class GroundType(DataType):
     def __init__(self, name, basetype, ranges):
         super(GroundType, self).__init__(name, "GROUND", True)
         self.ranges=ranges
-        self.level+=10
         self.basetype=basetype
         self.boundaries=[]
+        #print self.name, self.basetype, self.type, id(self)
         if ranges!=[]:
             self.boundaries=Util.getBoundaries(name, ranges)
           
-    def getRanges(self):
-        return {self.name: self.ranges}
+    #def getRanges(self):
+    #    return {self.name: self.ranges}
 
     def getAssertableRanges(self):
         if self.name in ("boolean", "string"):
@@ -64,9 +67,6 @@ class GroundType(DataType):
 
     def getNumberOfTestCases(self):
         return len(self.boundaries)
-
-    def __iter__(self):
-        return iter([])
 
     def __str__(self):
         return super(GroundType, self).__str__()
@@ -84,17 +84,16 @@ class EnumType(DataType):
         super(EnumType, self).__init__(name, "ENUM", isHead)
         self.mim=mim
         self.members={}
-        self.level+=10
-        self.basetype="NOT_DEFINED"
+        self.basetype="ENUM"
         self.boundaries=[]
 
     def addEnumMember(self, name, value):
-        self.members[name]=value
+        self.members["{0}_{1}".format(self.name, name)]=value
         self.boundaries.append([name])
 
-    def getRanges(self):
-        self.ranges=[[m] for m in self.members]
-        return {self.name : self.ranges}
+    #def getRanges(self):
+    #    self.ranges=[[m] for m in self.members]
+    #    return {self.name : self.ranges}
 
     def getAssertableRanges(self):
         return {self.basetype :[]}
@@ -116,29 +115,26 @@ class ContainerType(DataType):
     Every type containing one or more other types in form of a sequence, struct, set, etc. is a container type.
     Contains also the mim.
     """
-    def __iter__(self):
-        for c in self.content.values():
-            yield c
-            #iter(c)
-            for c1 in c:
-                yield c1
-            
-
 
     def __init__(self, name, mim, typ, isHead):
         super(ContainerType, self).__init__(name, typ, isHead)
         self.mim=mim
         self.content={}
-        self.level+=1
         self.basetype="NOT_DEFINED"
+        self.sortkey=[]
 
     def addDataType(self, name, dataType):
+        self.sortkey.append(name)
         self.content[name]=dataType
-        dataType.level+=self.level            
+        dataType.increaseLevel()
         
+    def increaseLevel(self):
+        self.level+=1
+        for c in self.content.values():
+            c.increaseLevel()
 
     def __str__(self):
-        return str(self.level)+" "+super(ContainerType, self).__str__()
+        return super(ContainerType, self).__str__()
 
 
 class StructType(ContainerType):
@@ -161,12 +157,12 @@ class StructType(ContainerType):
         if t.type=="STRUCT":
             t.isTop=False
 
-    def getRanges(self):
-        self.ranges={x:self.content[x].getRanges() for x in self.content}
-        return self.ranges
+    #def getRanges(self):
+    #    self.ranges={x:self.content[x].getRanges() for x in self.content}
+    #    return self.ranges
 
     def getAssertableRanges(self):
-        return self.getRanges()
+        return {x:self.content[x].getAssertableRanges() for x in self.content}
 
     def getNumberOfTestCases(self):
         if self.isExclusive:
@@ -178,15 +174,6 @@ class StructType(ContainerType):
         self.boundaries={x: self.content[x].getBoundaries() for x in sorted(self.content)}
         return self.boundaries
 
-    def __str__(self):
-        return str(self.content)
-        s=["STRUCT"]
-        if self.isExclusive:
-            s.append("(X)")
-        s.append("[")
-        s.append(super(StructType, self).__str__())
-        s.append("]")
-        return " ".join(s)
     
 class SequenceType(ContainerType):
     pass
@@ -217,18 +204,18 @@ class DerivedType(ContainerType):
             self.getBoundaries()
             self.fixedRanges=True
 
-    def getRanges(self):
+    #def getRanges(self):
         #self.ranges=self.content[0].getRanges()
-        if not self.fixedRanges:
-            self.ranges=self.content[0].getRanges()
-            if self.additionalRanges:
-                for r in self.additionalRanges:
-                    for a in self.additionalRanges[r]:
-                        temptyp=self.ranges[a].keys()[0]
-                        self.ranges[a]={temptyp:self.additionalRanges[r][a]}
+    #    if not self.fixedRanges:
+    #        self.ranges=self.content[0].getRanges()
+    #        if self.additionalRanges:
+    #            for r in self.additionalRanges:
+    #                for a in self.additionalRanges[r]:
+    #                    temptyp=self.ranges[a].keys()[0]
+    #                    self.ranges[a]={temptyp:self.additionalRanges[r][a]}
                         #print "ADDRANGES: replace ", self.ranges[r][a], "with", self.additionalRanges[r][a],"ENDADDRANGES"
                     #self.ranges[r]=self.ranges[self.additionalRanges[r]
-        return self.ranges
+    #    return self.ranges
 
     def getAssertableRanges(self):
         if not self.fixedRanges:
@@ -272,20 +259,8 @@ class AttrNode:
     def __init__(self, name):
         self.name=name
         self.dataType=None
-        self.defaultValue=""
         self.settings={}
 
-        self.filter=""
-        self.mandatory=False
-        self.notification=True
-        self.readOnly=False
-        self.persistent=True
-        self.restricted=False
-        self.key=False
-        self.validValues=""
-        self.type=""
-        self.defaultValue=""
-        self.coverage=1
 
     def getNumberOfTestCases(self):
         return self.dataType.getNumberOfTestCases()
@@ -293,76 +268,33 @@ class AttrNode:
     def __setitem__(self, key, value):
         self.settings[key]=value
 
-    def __getitem__(self, key):
-        return self.settings[key]
-
-    def setDefaultValue(self, s):
-        self.defaultValue=s
-
-    def setValidValues(self, re):
-        self.validValues=re
-        
+         
     def setDataType(self, name, t):
         self.dataType=t
+        self.dataType.increaseLevel()
         
-
-    def setFilter(self, s):
-        self.filter=s
-
-    def setMandatory(self):
-        self.mandatory=True
-
-    def setNoNotification(self):
-        self.notification=False
-
-    def setReadOnly(self):
-        self.readOnly=True
-
-    def setNonPersistent(self):
-        self.persistent=False
-
-    def setRestricted(self):
-        self.restricted=True
-
-    def setKey(self):
-        self.key=True
-
-    def __str__(self):
-        s = self.type + " " + self.name +"["
-        if self.mandatory:
-            s += "mandatory"
-        if not self.notification:
-            s += ",noNotification"
-        if self.readOnly:
-            s += ",readOnly"
-        if not self.persistent:
-            s += ",nonPersistent"
-        if self.restricted:
-            s += ",restricted"
-        if self.key:
-            s += ",key"
-        s += "]"
-
-        if self.filter:
-            s+= ", filter: "+self.filter
-
-        if self.validValues:
-            s+= ", regexp"
-
-
-        return s
 
 
 class ClassNode:
+    
+    @property
+    def name(self):
+        return self.name
+
+    @name.setter
+    def name(self, value):
+        self.name=value
+        
+    @name.deleter
+    def name(self):
+        del self.name
+
     def __init__(self, clsName, mimName=""):
         self.name=clsName
         self.mim= mimName
         self.parents=[]
         self.children= []
-        #self.servers= []
         self.attributes=[]
-        #self.isRoot=False
-        #self.isSystemCreated=False
         self.settings={}
         
     def __getitem__(self, key):
@@ -380,20 +312,7 @@ class ClassNode:
     def getNumberOfTestCases(self):
         return reduce(lambda x,y:x*y.getNumberOfTestCases(), self.attributes, 1)
 
-    def getBoundaries(self):
-        print self.name
-        for a in self.attributes:
-            print "\t", a.name, a.dataType.getBoundaries()
-        
-    #def setSystemCreated(self):
-    #    self.isSystemCreated=True
-
-    #def setRoot(self):
-    #    self.isRoot=True
-
-    #def setDependency(self, s):
-    #    self.dependency=s
-
+    
     def addParent(self, parent):
         self.parents.append(parent)
 
@@ -403,12 +322,5 @@ class ClassNode:
     def addAttribute(self, att):
         self.attributes.append(att)
 
-    #def addServing(self, server):
-    #    self.servers.append(server)
 
-    def __str__(self):
-        s=[self.name, ":"]
-        for a in self.attributes:
-            s.append(str(a))
-        return " ".join(s)
  

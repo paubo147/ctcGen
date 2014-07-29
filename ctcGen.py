@@ -8,8 +8,8 @@ import profile
 from ComponentSearcher import searchComponent
 
 from Parser import parseXML
-from SMTLIBBuilder import buildSMTLIBFacts
-import ctcGatherer
+import SMTLIBBuilder
+#import ctcGatherer
 import SMTController
 
 from SMTLIBCodeGenerator import *
@@ -29,53 +29,36 @@ def search(args):
 
     return searchComponent(xml_files, args.cls, args.mim)
 
-def getMaxCoverageToTest(annotations, coverage):
-    maxCov=annotations["strategy_maxCoverage"]
-    if upper(maxCov["unit"]) in ("%", "PERC", "PERCENT", "PERCENTAGE"):
-        return coverage * int(maxCov["value"]) /100
-    return int(maxCov["value"])
-
 """
 Create command: used to create test-cases
 """
 def create(args):
     start=time.time()
     parse_obj=parseXML([open(s, "r") for s in args.files], args.annotation, args.debug, args.cls)
-    tokens={
-        "COMMENT_CHAR": ";",
-        "LE_BITVECTOR": "bvule",
-        "GE_BITVECTOR": "bvuge",
-        "LE_INT": "<=",
-        "GE_INT": ">=",
-        "EQ": "=",
-        "NOT": "not",
-        "BINARY_EXPRESSION": "({0} {1} {2})",
-        "UNARY_EXPRESSION": "({0} {1})",
-        "ASSERTION": "(assert {0})",
-        "AND": "and",
-        "OR":"or",
-        "DEFINE_SORT": "(define-sort {0} () {1})",
-        "DECLARE_DATATYPES": "(declare-datatypes ({0}) (({1})))",
-        "DECLARE_FUN":"(declare-fun {0} ({1}) ({2} {3}))",
-        }
-    smtlib_gen=SMTLIBCodeGenerator(tokens)
+    #for dt in sorted(parse_obj.dataTypes.values(), key=lambda x: x.level):
+    #    print dt.level, dt.type, dt.basetype, dt.name, dt.content if hasattr(dt, "content") else "NONE"
 
-    
-    smt_facts=buildSMTLIBFacts(args.files, parse_obj, smtlib_gen)
+    smtlib_gen=SMTLIBCodeGenerator(parse_obj.solver_tokens)
+
+    SMTLIBBuilder.init(args.files, parse_obj)
+    smt_facts=SMTLIBBuilder.buildSMTLIBFacts(args.files, parse_obj, smtlib_gen)
     
     
     if args.output:
         with open(args.output, "wb") as f:
             f.write(smt_facts)
-    setattr(ctcGatherer, "overallTestCases", parse_obj.getNumberOfTestCases())
-    SMTController.run(parse_obj, smt_facts, parse_obj.solver_cmd)
+    #setattr(ctcGatherer, "overallTestCases", parse_obj.getNumberOfTestCases())
+    #print smt_facts
+    
+
+    generic_testcases=SMTController.run(parse_obj, smt_facts, smtlib_gen, parse_obj.solver_cmd)
     #process the SMTLIBFacts with the extracted SMT Solver command
     #generic_testcases=processSMTLIBFacts(smt_facts, parse_obj.solver_cmd, smtlib_gen)
     
-    #end =time.time()
-    #if args.generic:
-    #    with open(args.generic, "w+") as f:
-    #        f.write(getXML(end-start, generic_testcases))
+    end =time.time()
+    if args.generic:
+        with open(args.generic, "w+") as f:
+            f.write(generic_testcases[1](end-start, generic_testcases[0]))
     #w    print "TESTCASES WRITTEN TO "+args.generic
 
 
