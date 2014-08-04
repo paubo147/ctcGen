@@ -1,7 +1,8 @@
 from lxml import etree as ET
 import re
+import os
 
-from Parsing_bb import GroundType, DerivedType, StructType, EnumType, ClassNode, AttrNode
+from Parsing_bb import GroundType, DerivedType, SequenceType, StructType, EnumType, ClassNode, AttrNode
 from TagFinder import findTag
 
 import Util
@@ -11,19 +12,12 @@ class ParserResult:
     def __init__(self):
         self.classes={}
         self.pc_relations=[]
-        
+        self.rootClass=None
+        self.paths=[]
 
         self.stringPresent=False
         self.dataTypes={}
         self.delimiter={}
-
-        #self.derivedTypes={}
-        #self.enumTypes={}
-        #self.structTypes={}
-        #self.oldNewTranslations={}
-        #self.annotatedTypes={}
-        #self.buildingBlocks={}
-        #self.exclusiveTypes={}
         
         self.solver_cmd=[]
 
@@ -32,6 +26,18 @@ class ParserResult:
         self.boundaries={}
         self.solver_tokens={}
 
+        self.paths=[]
+        
+
+
+    def finish(self):
+        for c in self.classes.values():
+            if len(c.parents) == 0:
+                if self.rootClass==None:
+                    self.rootClass = c
+                    self.paths=c.paths()
+                else:
+                    print "MORE ROOT CLASSES FOUND"
         
     def addSolverToken(self, n, v):
         self.solver_tokens[n]=v
@@ -45,11 +51,6 @@ class ParserResult:
 
     def addDataType(self, name, dt):
         self.dataTypes[name]=dt
-
-    #def __contains__(self, name):
-    #    return name in self.dataTypes
-
-
 
     def addMapping(self, old, new):
         self.xml2SMT[old]=new
@@ -72,14 +73,16 @@ def checkSettings(attribute, a):
         attribute["filter"]=a.find("filter").text
     if a.find("mandatory") is not None:
         attribute["mandatory"]="true"
-    if a.find("noNotification") is not None:
-        attribute["noModification"]="true"
+
     if a.find("readOnly") is not None:
         attribute["readOnly"]="true"
-    if a.find("nonPersistent") is not None:
-        attribute["nonPersistent"]="true"
+
     if a.find("restricted") is not None:
         attribute["restricted"]="true"
+
+    if a.find("isNillable") is not None:
+        attribute["isNillable"]="true"
+
     if a.find("key") is not None:
         attribute["key"]="true"
     
@@ -101,8 +104,11 @@ def registerDataType(p, typekey, dtName, mimName, name, func_obj):
 
     if typekey in ("string", "boolean") or "int" in typekey:
         if dat is None:
-            print"GROUND DATATYPE {0} NOT FOUND IN PARSER RESULT".format(typekey) 
-            return
+            print p.xml2SMT
+            dat=p.xml2SMT[typekey]
+            if dat is None:
+                raise Exception("Parser.registerDataType(): GroundDatatype {0} not found in parse object".format(typekey))
+        
         func_obj(name, dat)
         #that is the point for ranges
         if typekey=="string":
@@ -122,28 +128,52 @@ def registerDataType(p, typekey, dtName, mimName, name, func_obj):
             dat=StructType(dtName, mimName, True)
             p.addDataType(dtName, dat)
         func_obj(name, dat)
-    elif typekey == "sequence": #NOT DEFINED YET
+    elif typekey == "sequence":
         if dat is None:
             dat=SequenceType(dtName, mimName, True)
             p.addDataType(dtName, dat)
         func_obj(name, dat)
+    elif typekey == "moRef":
+        dat=p.dataTypes.get("uint8", None)
+        if dat is None:
+            print "uint8 not found!!!!"
+            return
+        else:
+            func_obj(name, dat)
     else:
-        print("NO SOURCE_CODE YET: ",typekey)
+        raise Exception("Parser.registerDataType(): No source code for datatype {0} {1}".format(typekey, dat))
+
 
 
 def parseAttributes(p, bb, xml, annotations):
     for a in xml.findall("attribute"):
         an=AttrNode(a.get("name"))
+        if a.find("description") is not None:
+            an.description=a.find("description").text
 
+        checkSettings(an, a)
+            
         #TYPE CHECKS
         dt=a.find("dataType")
         typekey=list(dt)[0].tag
-        dataTypeName=dt[0].get("name") if dt[0] is not None else None
-        mimName=dt[0].find("mimName").text if dt[0] is not None and dt[0].find("mimName") is not None else None
-        registerDataType(p, typekey, dataTypeName, mimName, None, an.setDataType)
+        dataTypeName=None
+        if dt[0] is not None:
+            dataTypeName=dt[0].get("name")
+
+        mimName=None
+        if dt[0] is not None and dt[0].find("mimName") is not None:
+            mimName=dt[0].find("mimName").text
+
+        if "key" not in an:
+            registerDataType(p, typekey, dataTypeName, mimName, None, an.setDataType)
+        else:
+            registerDataType(p, "int16", dataTypeName, mimName, None, an.setDataType)
 
         if dt[0].find("range"):
             print "ADDITIONAL RANGE FOR", a.get("name"), "NOT TAKEN INTO ACCOUNT"
+
+        if dt[0].find("defaultValue") is not None:
+            an.defaultValue=dt[0].find("defaultValue").text
 
         #if dt[0].find("defaultValue") is not None:
         #    an["defaultValue"]=list(dt)[0].find("defaultValue").text
@@ -151,7 +181,6 @@ def parseAttributes(p, bb, xml, annotations):
         #if typekey in validValues:
         #    an["validValues"]=validValues[typekey]
 
-        checkSettings(an, a)
         bb.addAttribute(an)
         
 
@@ -163,7 +192,7 @@ def parseClasses(p, mim, annotations):
         p.addClass(bb)
         #classes[bb.name]=bb
 
-def parsePCRelationship(p, containment):
+def parsePCRelationship(mim, p, containment):
     parent = containment.find("parent")
     if parent is not None:
         pclas = parent.find("hasClass")
@@ -174,6 +203,8 @@ def parsePCRelationship(p, containment):
 
     assert cclas is not None and pclas is not None
     if pclas.get("name") in p.classes  and cclas.get("name") in p.classes:
+        if pclas.get("name")=="SctpEndpoint" and cclas.get("name")=="SctpAssociation":
+            print "adding {0}: {1} -> {2}".format(mim, pclas.get("name"), cclas.get("name"))
         parent_bb=p.classes[pclas.get("name")]
         child_bb=p.classes[cclas.get("name")]
         child_bb.addParent(parent_bb)
@@ -183,43 +214,37 @@ def parsePCRelationship(p, containment):
 
 
 
-def parseInterMimRelationships(assoc):
-    client=assoc.findall("associationEnd")[0].find("hasClass")
-    server=assoc.findall("associationEnd")[1].find("hasClass")
-    classes[client.get("name")].addServing(classes[server.get("name")])
-    attr = assoc.findall("associationEnd")[0].get("name")
-    morefkey = "%s::%s" % (client.get("name"), attr)
-    associations[morefkey]=server.get("name")
+def parseInterMimRelationships(p, assoc):
+    """Parses bidirectional associations
+    input:
+          -assoc  'biDirectionalAssociation' xml-element
+          -p      parse-object
+    """
+    pass
 
-def parseRelationships(p, model):
+
+def parseRelationships(p, model, mim):
+    """Parses all kind of relationships. 
+    This includes parent-child as well as bidirectional associations.
+    Invariant: all classes have to be stored at the parse-object already
+    input:
+          -model   xml-file
+          -p       parse-object
+    """
+    assert p.classes
     for rel in model.iter("relationship"):
         containment=rel.find("containment")
         if containment is not None:
-            parsePCRelationship(p, containment)
+            parsePCRelationship(mim, p, containment)
         assoc = rel.find("biDirectionalAssociation")
         if assoc is not None:
-            pass
-            #parseInterMimRelationships(assoc)
+            parseInterMimRelationships(p, assoc)
 
-def getMissingClasses(models):
-    moRefs=[]
-    for model in models:
-        for moref in model.iter("moRef"):
-            if moref.get("name") == "ManagedObject":
-                moRefs.append("ManagedObject")
-            else:
-                moRefs.append(moref.find("mimName").text+"::"+moref.get("name"))
-                
-        for tst in model.findall(".//hasClass"):
-            moRefs.append(tst.find("mimName").text+"::"+tst.get("name"))
-                    
-        for mim in model.findall("mim"):
-            for cls in mim.findall("class"):
-                moRefs = [value for value in moRefs if value != mim.get("name")+"::"+cls.get("name")]
-    return set(moRefs)
-
+    
+    
 
 def manageAnnotatedDataTypes(p, annotations, typ, name, bt, ranges):
+    
     if "dt_"+typ in annotations:
         if typ in p.dataTypes:
             dt=p.dataTypes[typ]
@@ -285,7 +310,8 @@ def manageAnnotatedDataTypes(p, annotations, typ, name, bt, ranges):
             bt.addDataType(name, dt)
             #print "BASIC: ADDING {0} TO {1} ({2})".format(name, bt.name, dt.name)
     else:
-        print "NEVER SEEN {0} BEFORE".format(name)
+        raise Exception("Parser:manageAnnotatedDataTypes(): {0} is not in annotations.".format(typ))
+
 
 
 def checkDerivedDataTypes(p, mim, annotations):
@@ -313,7 +339,7 @@ def checkDerivedDataTypes(p, mim, annotations):
                     dat.addRange(dt_name, bt_name, [[int(rng.find("min").text), int(rng.find("max").text)]])
             
         else:
-            print "DATATYPE NOT USED:", dt_name
+            print "Parser:checkDerivedDataTypes(): {0} not seen before.".format(dt_name)
         
             
 def checkEnumDataTypes(p, mim, annotations):
@@ -322,7 +348,7 @@ def checkEnumDataTypes(p, mim, annotations):
         if enum_name in p.dataTypes:
             et=p.dataTypes[enum_name]
         else:
-            et=EnumType(enum_name, None)
+            et=EnumType(enum_name, None, True)
             p.addDataType(enum_name, et)
         for em in e.xpath("enumMember"):
             if em not in et:
@@ -351,27 +377,20 @@ def resolveDataTypes(p, mim, annotations):
     checkEnumDataTypes(p, mim, annotations)
     
 
-"""
-Parses the xml files as well as the annotation file. Has the option to create parse-tree with only one class
-
-"""
 models=[]
 
 def parseXML(xml_files, annotation_file, debugMode=False, onlyClass=None):
+    """
+    Stores model (mp) files, parses annotations and parses the whole mp structure.
+    """
     p=ParserResult()
     #create element trees out of all the xml files
     for file in xml_files:
-        models.append(ET.ElementTree(file=file))
-
-    #if not debugMode:
-    #check if classes are missing
-    #    moRefs=getMissingClasses(models)
-
-    #    if moRefs:
-    #        print "ERROR: the following classes are missing (mim::class): "
-    #        for mo in moRefs:
-    #            print "\t", mo
-    #            exit(-2)
+        try:
+            models.append(ET.ElementTree(file=file))
+        except ET.XMLSyntaxError as e:
+            print "Parser.parseXML(): error in file {0} : {1}".format(file, e)
+            return 
 
     #Parse annotation file before the classes are parsed
     annotations={}
@@ -406,17 +425,55 @@ def parseXML(xml_files, annotation_file, debugMode=False, onlyClass=None):
 
     if not onlyClass:
         for model in models:
-            parseRelationships(p, model)
+            parseRelationships(p, model, model.findall("mim")[0].get("name"))
+
+    p.finish()
+
+    print "ROOT", p.rootClass.name
+    print "TESTCASES", p.getNumberOfTestCases()
+    return p
+
+
+def findFileOfClass(folder, clas):
+    files=[]
+    for foldFile in os.listdir(folder):
+        if "_mp.xml"==foldFile[-7:] and foldFile[0]!=".":
+            with open(folder+"/"+foldFile, "r") as fl:
+                el =ET.ElementTree(file=fl)
+                for e in el.iter("class"):
+                    if clas==e.get("name"):
+                        files.append(foldFile)
+
+    if files:
+        return " ".join(files)
+
+    return "NOT_FOUND"
+
+def findConvexHull(folder, fl):
+    mimsToFind=set()
+    files=[fl]
+    res=set()
+    for foldFile in os.listdir(folder):
+        if "_mp.xml" == foldFile[-7:]:
+            files.append(foldFile)
 
     
- #GOALS
-    #maxCov=annotations["strategy_maxCoverage"]
-    #if maxCov["unit"].upper() in ("%", "PERC", "PERCENT", "PERCENTAGE"):
-    #    p.setGoalCoverage(p.getCoverage()*int(maxCov["value"]) / 100)
-    #else:
-    #    p.setGoalCoverage(int(maxCov["value"]))
-                       
-    
-    #p=ParserResult(derivedTypes, enumTypes, classes, structs, annotations, pc_list)
-    print "OVERALL TESTCASES", p.getNumberOfTestCases()
-    return p
+    for f in files:
+        with open(folder+"/"+f, "r") as file:
+            try:
+                element=ET.ElementTree(file=file)
+            except Exception as e:
+                print f
+                raise e
+            for e in element.iter("mimName"):
+                mimsToFind.add(e.text)
+
+    for f in files:
+        with open(folder+"/"+f, "r") as file:
+            element=ET.ElementTree(file=file)
+            for mim in element.iter("mim"):
+                if mim.get("name") in mimsToFind:
+                    res.add(f)
+                    mimsToFind.remove(mim.get("name"))
+        
+    return (res, mimsToFind)

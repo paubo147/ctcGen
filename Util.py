@@ -4,7 +4,7 @@ import ast
 import random
 import string
 
-def get_random_string():
+def get_random_string(x):
     size=random.randint(5, 30)
     return "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(size))
 

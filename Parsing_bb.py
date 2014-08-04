@@ -33,8 +33,9 @@ class DataType(object):
     def getNumberOfTestCases(self):
         pass
 
-    def increaseLevel(self):
-        self.level+=2
+    def increaseLevel(self, value=1):
+        #print "BASIC", self.name, "increased by ", value, "=", self.level+value
+        self.level+=value
     
         
 
@@ -66,7 +67,11 @@ class GroundType(DataType):
         return {self.name : self.boundaries}
 
     def getNumberOfTestCases(self):
-        return len(self.boundaries)
+        #print self.name, len(self.boundaries)
+        if len(self.boundaries):
+            return len(self.boundaries)
+        else:
+            return 1
 
     def __str__(self):
         return super(GroundType, self).__str__()
@@ -102,6 +107,7 @@ class EnumType(DataType):
         return {self.name:self.boundaries}
 
     def getNumberOfTestCases(self):
+        #print self.name, len(self.boundaries)
         #print "ENUM", len(self.boundaries)
         return len(self.boundaries)
 
@@ -126,12 +132,16 @@ class ContainerType(DataType):
     def addDataType(self, name, dataType):
         self.sortkey.append(name)
         self.content[name]=dataType
-        dataType.increaseLevel()
+        #print "ADDED", name
+        dataType.increaseLevel(2)
         
-    def increaseLevel(self):
-        self.level+=1
-        for c in self.content.values():
-            c.increaseLevel()
+    def increaseLevel(self, val=1):
+        #print "CONTAINER", self.name, "increased by", val, "=", self.level+val
+        self.level+=val
+        for c in self.content:
+            #print "CONTAINER", self.name, "increasing child", c
+            self.content[c].increaseLevel(2)
+            
 
     def __str__(self):
         return super(ContainerType, self).__str__()
@@ -166,17 +176,18 @@ class StructType(ContainerType):
 
     def getNumberOfTestCases(self):
         if self.isExclusive:
+            #print self.name, sum(self.content[x].getNumberOfTestCases() for x in self.content)
             return sum(self.content[x].getNumberOfTestCases() for x in self.content)
         else:
+            #print self.name, reduce(lambda x,y: x*y, [self.content[x].getNumberOfTestCases() for x in self.content])
+            #return sum(self.content[x].getNumberOfTestCases() for x in self.content)
+
             return reduce(lambda x,y: x*y, [self.content[x].getNumberOfTestCases() for x in self.content])
             
     def getBoundaries(self):
         self.boundaries={x: self.content[x].getBoundaries() for x in sorted(self.content)}
         return self.boundaries
 
-    
-class SequenceType(ContainerType):
-    pass
 
 class DerivedType(ContainerType):
     """
@@ -204,19 +215,6 @@ class DerivedType(ContainerType):
             self.getBoundaries()
             self.fixedRanges=True
 
-    #def getRanges(self):
-        #self.ranges=self.content[0].getRanges()
-    #    if not self.fixedRanges:
-    #        self.ranges=self.content[0].getRanges()
-    #        if self.additionalRanges:
-    #            for r in self.additionalRanges:
-    #                for a in self.additionalRanges[r]:
-    #                    temptyp=self.ranges[a].keys()[0]
-    #                    self.ranges[a]={temptyp:self.additionalRanges[r][a]}
-                        #print "ADDRANGES: replace ", self.ranges[r][a], "with", self.additionalRanges[r][a],"ENDADDRANGES"
-                    #self.ranges[r]=self.ranges[self.additionalRanges[r]
-    #    return self.ranges
-
     def getAssertableRanges(self):
         if not self.fixedRanges:
             self.ranges=self.content[0].getAssertableRanges()
@@ -232,6 +230,8 @@ class DerivedType(ContainerType):
     
     def getBoundaries(self):
         if not self.fixedRanges:
+            if not self.content or 0 not in self.content:
+                raise Exception("FATAL: DerivedType.getBoundaries(): {0} has no content".format(self.name))
             self.boundaries=self.content[0].getBoundaries()
             if self.additionalRanges:
                 for r in self.additionalRanges:
@@ -252,24 +252,96 @@ class DerivedType(ContainerType):
 
     def getNumberOfTestCases(self):
         #print "DERVIED", self.name, self.content[0].getNumberOfTestCases()
+        #print self.name, self.content[0].getNumberOfTestCases()
         return self.content[0].getNumberOfTestCases()
 
 
-class AttrNode:
+class SequenceType(DerivedType):
+    pass
+
+#    def __init__(self, name, mim, isHead):
+#        super(SequenceType, self).__init__(name, mim, "SEQUENCE", isHead)
+#        self.unique=False
+#        self.ordered=False
+#        self.lengthRanges=[]
+
+#    def setLengthConstraints(self, rng):
+#        if self.lengthRanges:
+#            self.lengthRanges=rng
+        
+
+#    def getAssertableRanges(self):
+#        return self.content[0].getAssertableRanges()
+
+#    def getBoundaries(self):
+#        return self.content[0].getBoundaries()
+
+    
+    
+
+class AttrNode(object):
     def __init__(self, name):
-        self.name=name
-        self.dataType=None
+        self._name=name
+        self._dataType=None
+        self._description=""
+        self._defaultValue=None
+
+        self.settings={}
+
+        
+    @property
+    def description(self):
+        return self._description
+
+    @description.setter
+    def description(self, value):
+        self._description=value
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def dataType(self):
+        return self._dataType
+
+    @dataType.setter
+    def dataType(self, dt):
+        self._dataType=dt
+
+    @property
+    def defaultValue(self):
+        return self._defaultValue
+
+    @defaultValue.setter
+    def defaultValue(self, value):
+        self._defaultValue=value
+
+
+    def __init__(self, name):
+        self._name=name
+        self._dataType=None
+        self._description=""
+
         self.settings={}
 
 
     def getNumberOfTestCases(self):
+        #print self.name, self.dataType.getNumberOfTestCases()
         return self.dataType.getNumberOfTestCases()
 
     def __setitem__(self, key, value):
         self.settings[key]=value
 
+    def __contains__(self, key):
+        return key in self.settings
+
+    def __getitem__(self, key):
+        return self.settings[key]
+
          
     def setDataType(self, name, t):
+        #print "SET DATATYPE", t.name, "increase", t.level
         self.dataType=t
         self.dataType.increaseLevel()
         
@@ -285,9 +357,7 @@ class ClassNode:
     def name(self, value):
         self.name=value
         
-    @name.deleter
-    def name(self):
-        del self.name
+   
 
     def __init__(self, clsName, mimName=""):
         self.name=clsName
@@ -296,7 +366,24 @@ class ClassNode:
         self.children= []
         self.attributes=[]
         self.settings={}
-        
+   
+    def paths(self):
+        result=[]
+        current_list=[self]
+        old_list=[]
+        i=0
+        while len(current_list) > 0:#sum([len(c.children) for c in current_list]) > 0:
+            result.append(old_list+[x.name for x in current_list])
+            old_list.extend([x.name for x in current_list])
+            tempList=list(current_list)
+            current_list=[]
+            for t in tempList:
+                for c in t.children:
+                    current_list.append(c)
+        return result
+            
+            
+     
     def __getitem__(self, key):
         return self.settings[key]
 
@@ -310,7 +397,11 @@ class ClassNode:
         return key in self.settings
 
     def getNumberOfTestCases(self):
-        return reduce(lambda x,y:x*y.getNumberOfTestCases(), self.attributes, 1)
+        #print self.name, sum(a.getNumberOfTestCases() for a in self.attributes)
+        return sum(a.getNumberOfTestCases() for a in self.attributes)
+
+        #return {self.name: sum(a.getNumberOfTestCases() for a in self.attributes)}
+        #return reduce(lambda x,y:x*y.getNumberOfTestCases(), self.attributes, 1)
 
     
     def addParent(self, parent):

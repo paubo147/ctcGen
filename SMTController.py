@@ -15,8 +15,7 @@ def run(parse_obj, facts, smtgen, solver_cmd):
         with open(SMT_INPUT_FILE, "w+") as smt_input_file:
             smt_input_file.seek(0)
             smt_input_file.truncate()
-            print runNumbers
-            #print facts
+            print "SMT-run: ", runNumbers
             smt_input_file.write(facts) #CHANGE IF FACTS GETS AN OBJECT
             smt_input_file.write("(check-sat)\n(get-model)\n")
         runNumbers+=1

@@ -10,6 +10,7 @@ reserved={
     "model"      : "MODEL",
     "Bool"       : "BOOL",
     "Int"        : "INT",
+    "null"       : "NULL",
     r"_"         : "UNDERBAR",
     "-"          : "MINUS",
 }
@@ -30,7 +31,7 @@ t_UNDERBAR=r"_"
 t_HEX=r"\#x[0-9a-zA-Z]+"
 t_NUM=r"\d+"
 
-t_ignore_COMMENT=r"\;.*"
+t_ignore_COMMENT=r"\;.*\n"
 t_ignore=" \t"
 
 def t_newline(t):
@@ -42,7 +43,7 @@ def t_error(t):
     t.lexer.skip(1)
 
 def t_ID(t):
-    r"[a-zA-Z_-][a-zA-Z0-9_-]*"
+    r"[a-zA-Z_][a-zA-Z0-9_-]*"
     t.type=reserved.get(t.value, "ID")
     return t
 
@@ -55,9 +56,10 @@ fun_defs       : fun_def fun_defs
 fun_def        : LPAR DEFINE_FUN ID fun_args fun_signature fun_body RPAR
 fun_args       : LPAR arglist RPAR 
                | LPAR RPAR
-arglist        : LPAR ID ID RPAR arglist 
-               | LPAR ID ID RPAR
-fun_signature  : LPAR ID types RPAR
+arglist        : LPAR ID type RPAR arglist 
+               | LPAR ID type RPAR
+fun_signature  : LPAR ID types RPAR 
+               | LPAR ID RPAR
 types          : type types 
                | type
 type           : LPAR ID types RPAR 
@@ -74,6 +76,7 @@ plain_literals | HEX
                | NUM 
                | LPAR MINUS NUM LPAR 
                | LPAR fun_body RPAR 
+               | NULL
                | ID
 
 """
@@ -98,7 +101,7 @@ def p_fun_defs_term(p):
 def p_fun_def(p):
     "fun_def        : LPAR DEFINE_FUN ID fun_args fun_signature fun_body RPAR"
     p[0]=(p[5],p[3],p[6])
-    outputs[p[5]]=p[6]
+    outputs[p[3]]=p[6]
 
 def p_fun_args(p):
     "fun_args : LPAR arglist RPAR"
@@ -118,14 +121,26 @@ def p_fun_signature(p):
     "fun_signature  : LPAR ID types RPAR"
     p[0]=p[2]
 
+def p_fun_signature_only_id(p):
+    "fun_signature  : ID"
+    p[0]=p[1]
+
+def p_fun_signature_int(p):
+    "fun_signature : INT"
+    p[0]=p[1]
+
 def p_types(p):
     "types           : type types"
 
 def p_types_one(p):
     "types : type"
 
+
 def p_type(p):
     "type           : LPAR ID types RPAR"
+
+def p_type_null(p):
+    "type : NULL"
 
 def p_type_int(p):
     "type : INT"
@@ -140,18 +155,44 @@ def p_type_bool(p):
 def p_type_enum(p):
     "type : ID"
 
-#function body 
+#function body
+
+#def p_fun_body_single_num(p):
+#    "fun_body : NUM"
+#    p[0]=p[1] 
+
+#def p_fun_body_single_negative(p):
+#    "fun_body : LPAR MINUS NUM RPAR"
+#    p[0]="-"+p[3]
+
+
+#def p_fun_body_single(p):
+#    "fun_body : plain_literal"
+#    p[0]=p[1]
+
 def p_fun_body(p):
     "fun_body       : LPAR ID plain_literals RPAR"
     p[0]=[p[2]]+p[3]
     
-def p_plain_literals(p):
-    "plain_literals : plain_literal plain_literals"
-    p[0]=[p[1]]+p[2]
+def p_fun_body_neg(p):
+    "fun_body : LPAR MINUS NUM RPAR"
+    p[0]="-"+p[3]
+
+def p_fun_body_num(p):
+    "fun_body : NUM"
+    p[0]=p[1]
+
+#def p_fun_body_single_negative(p):
+#    "fun_body : LPAR MINUS NUM RPAR"
+#    p[0]="-"+p[3]
 
 def p_plain_literal_single(p):
     "plain_literals : plain_literal"
     p[0]=[p[1]]
+
+def p_plain_literals(p):
+    "plain_literals : plain_literals plain_literal"
+    p[0]=p[1]+[p[2]]
 
 
 def p_plain_literal_hex(p):
@@ -174,18 +215,33 @@ def p_plain_literal_enum(p):
     "plain_literal : ID"
     p[0]=p[1]
 
+def p_plain_literal_null(p):
+    "plain_literal : NULL"
+    p[0]=p[1]
+
 def p_plain_literal_bool(p):
     """plain_literal : TRUE 
                      | FALSE"""
 
     p[0]=p[1]
 
+
+ip=""
 def p_error(p):
-    print "ERROR: line",p.lineno
+    print ip
+    print "SMT RESULTPARSER-ERROR: line {0}, value '{1}'".format(p.lineno, p.value)
+    exit()
 
 
 def parse(s):
-    lexer=lex.lex()
+    global ip
+    ip=s
+    lexer=lex.lex()  
+    #lexer.input(s)
+    #while True:
+    #    tok=lexer.token()
+    #    if not tok: break
+    #    print tok
     parser=yacc.yacc()
     
     parser.parse(s)

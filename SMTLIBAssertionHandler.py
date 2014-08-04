@@ -6,6 +6,7 @@ import string
 
 boundaries={}
 removedBoundaries={}
+results="P" #or "N"
 strategy=1 #1: each boundary once, 2: exponential blowup
 
 class AssertionSet(list):
@@ -34,33 +35,35 @@ constantAssertions={}
 testerAssertions=AssertionSet()
 
 def runnable():
-    #print "BOUNDARIES LEFT", len(testerAssertions), len(boundaries.values())#, boundaries
+    #TODO should switch to negative tests, i.e., results="N" if testerAssertions ==0
     return len(testerAssertions)!=0
     
 
 def addBoundary(n, b):
     boundaries[n]=b
 
-def addConstantAssertion(cls, func, attr, name, rang, parse_obj):
+def addConstantAssertion(cls, func, attr, name, rang, parse_obj, isNullable):
     if cls not in constantAssertions:
         constantAssertions[cls]={}
     if "NOT_DEFINED" not in rang:
         for x in rang:
             #print x
             if x in parse_obj.xml2SMT:
+                #print "LAST ASSERTION: ", attr, func, isNullable
+                #({0} (value {1}))
                 constantAssertions[cls]["({0} {1})".format(attr, func)]={
                     "type": parse_obj.dataTypes[name].basetype.upper(),
                     "ranges": rang[x]
                     }
             else:
                 if x in parse_obj.dataTypes:
-                    addConstantAssertion(cls, func, attr, name, rang[x], parse_obj)
+                    addConstantAssertion(cls, func, attr, name, rang[x], parse_obj, isNullable)
                     #print "\tCALL_RECURSIVE", func, attr, name, rang[x]
                 else:
                     for y in rang[x]:
                         #if attr=="routeDistinguisher":
                         #    print "HERE", "({0} {1})".format(attr, func), x, y, rang[x][y], "parse_obj"
-                        addConstantAssertion(cls, "({0} {1})".format(attr, func), x, y, {y:rang[x][y]}, parse_obj)
+                        addConstantAssertion(cls, "({0} {1})".format(attr, func), x, y, {y:rang[x][y]}, parse_obj, isNullable)
                         #print "\tCALL_RECURSIVE", x, "({0} {1})".format(attr, func), y, rang[x][y], "parse_obj"
 
 
@@ -89,8 +92,8 @@ def handleBoundary(tcid, s, t, value, boundary, bt):
         #print "DONE WITH", s, boundaries[s]
         return
     
-    if "satInfo" in s:
-        print s, boundaries[s]
+    #if "routeDistinguisher" in s:
+    #    print s, boundaries[s]
 
     #TODO here is the point where we have to change values
     #print "CHANGE BOUNDARIES", t.type, t.name, t.basetype, t.getSMTBoundaries(removedBoundaries[s]), removedBoundaries[s]
@@ -138,6 +141,7 @@ def identifyBoundary(tcid, prefix, vals, a, dt, tempBound):
             else:
                 for b, l in tempBound.iteritems():
                     #print tempBound.keys(), b
+                    #print b, dt.name, dt.mk_name, vals
                     if dt.name in vals:
                         newVals=vals[dt.name][b]#tempBound.keys().index(b)]
                     elif dt.mk_name in vals:
@@ -150,7 +154,9 @@ def identifyBoundary(tcid, prefix, vals, a, dt, tempBound):
 def checkTestCase(gtc, p):
     for c in gtc.clsses:
         for a, v in c.vals.iteritems():
+            #print a.name, v
             plain_values=a.dataType.transform(v)
+            #print a.dataType.annotatedValue, v
             #WE NEED A PARAMETER WHICH GUIDES THE ATTRIBUTE TESTING PROCESS
             #1 stands for "exactly-once" semantic (each boundary once)
             #2 stands for "at-most-once" semantic (one test for each class)

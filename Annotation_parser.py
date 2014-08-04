@@ -35,24 +35,27 @@ def parse_annotation_file(file):
             dt_name=dt.get("name")
             fields=dt.find("fields")
             if fields is not None:
-                no_fields=int(fields.get("cardinality"))
-                prefix=fields.get("prefix")
-                f=fields.find("field")
-                basetype=f.find("bb").text
-                delimiter=dt.find("delimiter").text
-                rng=[f.find("range").find("min").text, f.find("range").find("max").text]
-                fs={}
-                produce_str=[]
-                for i in range(no_fields):
-                    fs[prefix+str(i)]={"baseType": basetype, "range":rng}
-                    produce_str.append("field")
-                    if i < no_fields-1:
-                        produce_str.append(delimiter)
-                        #fs["delimiter_"+prefix+str(i)]=delimiter
+                if fields.get("cardinality") is not None and fields.get("prefix") is not None:
+                    no_fields=int(fields.get("cardinality"))
+                    prefix=fields.get("prefix")
+                    f=fields.find("field")
+                    basetype=f.find("bb").text
+                    delimiter=dt.find("delimiter").text
+                    rng=[f.find("range").find("min").text, f.find("range").find("max").text]
+                    fs={}
+                    produce_str=[]
+                    for i in range(no_fields):
+                        fs[prefix+str(i)]={"baseType": basetype, "range":rng}
+                        produce_str.append("field")
+                        if i < no_fields-1:
+                            produce_str.append(delimiter)
+                            annotations["dt_"+dt_name]={"fields": fs, 
+                                                        "produce_string":produce_str, 
+                                                        "delimiter":delimiter}
+                else:
+                    print "no implementation for {0}".format(dt_name)
 
-#                fs["produce_string"]=produce_str
-                    
-                annotations["dt_"+dt_name]={"fields": fs, "produce_string":produce_str, "delimiter":delimiter}
+                        
             else:
                 #NASTY STUFF: no fields? probably an exclusive datatype
                 options={}
@@ -101,17 +104,7 @@ def parse_annotation_file(file):
                 annotations["token_{0}".format(token.get("name"))]=token.text
         else:
             print "TOKENS_NOT FOUND", solver_root.find("tokens")
-            
 
-        #strategy
-        strat=root.find("strategy")
-        for e in strat:
-            if e.tag=="maxCoverage":
-                val=e.find("value").text
-                unit=e.find("unit").text
-                annotations["strategy_maxCoverage"]={"value":val, "unit":unit}
-            if e.tag=="behavior":
-                annotations["behavior_attributes"]=e.find("attributes").text
     return annotations
                 
 
