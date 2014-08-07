@@ -123,7 +123,12 @@ def initGroundTypeSMT(t, smtgen, p):
     else:
         t.transform=transformDirect
 
-    t.smt=smtgen.get_smt_sort(t.name, p.xml2SMT[t.name])
+    if t.name in p.dataTypes:
+        print t.name
+        smt_type=p.dataTypes[t.name].smtType
+    else:
+        raise Exception("FATAL: could not get smt_type for {0}".format(t.name))
+    t.smt=smtgen.get_smt_sort(t.name, smt_type)
         
 
 def initDerivedTypeSMT(t, smtgen, p):

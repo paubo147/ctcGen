@@ -175,14 +175,14 @@ class StructType(ContainerType):
         return {x:self.content[x].getAssertableRanges() for x in self.content}
 
     def getNumberOfTestCases(self):
-        if self.isExclusive:
+        #if self.isExclusive:
             #print self.name, sum(self.content[x].getNumberOfTestCases() for x in self.content)
-            return sum(self.content[x].getNumberOfTestCases() for x in self.content)
-        else:
+        #    return sum(self.content[x].getNumberOfTestCases() for x in self.content)
+        #else:
             #print self.name, reduce(lambda x,y: x*y, [self.content[x].getNumberOfTestCases() for x in self.content])
             #return sum(self.content[x].getNumberOfTestCases() for x in self.content)
 
-            return reduce(lambda x,y: x*y, [self.content[x].getNumberOfTestCases() for x in self.content])
+        return reduce(lambda x,y: x*y, [self.content[x].getNumberOfTestCases() for x in self.content])
             
     def getBoundaries(self):
         self.boundaries={x: self.content[x].getBoundaries() for x in sorted(self.content)}

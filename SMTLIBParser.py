@@ -225,11 +225,20 @@ def p_plain_literal_bool(p):
 
     p[0]=p[1]
 
+def find_column(inpt,token):
+    last_cr=inpt.rfind("\n", 0, token.lexpos)
+    if last_cr < 0:
+        last_cr=0
+    column = (token.lexpos-last_cr)+1
+    return column
 
 ip=""
 def p_error(p):
-    print ip
-    print "SMT RESULTPARSER-ERROR: line {0}, value '{1}'".format(p.lineno, p.value)
+    cl=find_column(ip, p)
+    l=ip.split("\n")
+    print l[p.lineno-1]
+    print " "*cl+"^"
+    print "SMT RESULTPARSER-ERROR: line {0}, column {1}, value '{2}'".format(p.lineno, cl, p.value)
     exit()
 
 

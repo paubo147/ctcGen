@@ -21,12 +21,12 @@ class ParserResult:
         
         self.solver_cmd=[]
 
-        self.xml2SMT={}
-
         self.boundaries={}
         self.solver_tokens={}
 
         self.paths=[]
+
+        self.implicit_types=[] #those which will be removed from the annotation file
         
 
 
@@ -51,9 +51,6 @@ class ParserResult:
 
     def addDataType(self, name, dt):
         self.dataTypes[name]=dt
-
-    def addMapping(self, old, new):
-        self.xml2SMT[old]=new
 
     def addClass(self, bb):
         self.classes[bb.name]=bb
@@ -99,13 +96,19 @@ def checkSettings(attribute, a):
 #annotatedTypes={}
 #oldNewMapping={}
 
-def registerDataType(p, typekey, dtName, mimName, name, func_obj):
+def registerDataType(annotations, p, typekey, dtName, mimName, name, func_obj):
+    
     dat=p.dataTypes.get(typekey, None)
 
     if typekey in ("string", "boolean") or "int" in typekey:
         if dat is None:
-            print p.xml2SMT
-            dat=p.xml2SMT[typekey]
+            #            dat=p.xml2SMT[typekey] 
+            if "bb_"+typekey in annotations:
+                (n,r)=Util.getNameRange(typekey)
+                dat=GroundType(n,typekey, r)
+                dat.smtType=annotations["bb_"+typekey]["smtType"]
+                dat.id_type=annotations["bb_"+typekey]["type"]
+                p.addDataType(n, dat)
             if dat is None:
                 raise Exception("Parser.registerDataType(): GroundDatatype {0} not found in parse object".format(typekey))
         
@@ -136,10 +139,12 @@ def registerDataType(p, typekey, dtName, mimName, name, func_obj):
     elif typekey == "moRef":
         dat=p.dataTypes.get("uint8", None)
         if dat is None:
-            print "uint8 not found!!!!"
-            return
-        else:
-            func_obj(name, dat)
+            (n,r)=Util.getNameRange("uint8")
+            dat=GroundType(n, "uint8", r)
+            dat.smtType="Int"
+            dat.id_type="INT"
+            p.addDataType(n, dat)
+        func_obj(name, dat)
     else:
         raise Exception("Parser.registerDataType(): No source code for datatype {0} {1}".format(typekey, dat))
 
@@ -165,9 +170,9 @@ def parseAttributes(p, bb, xml, annotations):
             mimName=dt[0].find("mimName").text
 
         if "key" not in an:
-            registerDataType(p, typekey, dataTypeName, mimName, None, an.setDataType)
+            registerDataType(annotations, p, typekey, dataTypeName, mimName, None, an.setDataType)
         else:
-            registerDataType(p, "int16", dataTypeName, mimName, None, an.setDataType)
+            registerDataType(annotations, p, "int16", dataTypeName, mimName, None, an.setDataType)
 
         if dt[0].find("range"):
             print "ADDITIONAL RANGE FOR", a.get("name"), "NOT TAKEN INTO ACCOUNT"
@@ -203,8 +208,7 @@ def parsePCRelationship(mim, p, containment):
 
     assert cclas is not None and pclas is not None
     if pclas.get("name") in p.classes  and cclas.get("name") in p.classes:
-        if pclas.get("name")=="SctpEndpoint" and cclas.get("name")=="SctpAssociation":
-            print "adding {0}: {1} -> {2}".format(mim, pclas.get("name"), cclas.get("name"))
+        
         parent_bb=p.classes[pclas.get("name")]
         child_bb=p.classes[cclas.get("name")]
         child_bb.addParent(parent_bb)
@@ -293,16 +297,20 @@ def manageAnnotatedDataTypes(p, annotations, typ, name, bt, ranges):
                         ranges=annotations["exdt_"+typ]["options"][optionName]["fields"][field]["range"]
                         manageAnnotatedDataTypes(p, annotations, baseType, optionName+"_"+field, dto, ranges)
     elif "bb_"+typ in annotations:
-        if "smtType" in annotations["bb_"+typ]:
-            if typ not in p.xml2SMT:
-                p.xml2SMT[typ]=annotations["bb_"+typ]["smtType"]
+        #if "smtType" in annotations["bb_"+typ]:
+        #    if typ not in p.xml2SMT:
+        #        p.xml2SMT[typ]=annotations["bb_"+typ]["smtType"]
             
         if typ in p.dataTypes:
             dt=p.dataTypes[typ]
         else:
             #rint typ, annotations["bb_"+typ]["type"], [ranges]
             dt=GroundType(typ, annotations["bb_"+typ]["type"], [ranges])
+            dt.smtType=annotations["bb_"+typ]["smtType"]
+            dt.id_type=annotations["bb_"+typ]["type"]
             p.addDataType(typ, dt)
+            
+            
             if dt.basetype=="bitvector":
                 dt.bits=int(re.findall(r"\d+", annotations["bb_"+typ]["smtType"])[0])/4
             #print "BASIC: ADDING {0} TO PARSER ({1})".format(typ, [ranges])
@@ -332,7 +340,7 @@ def checkDerivedDataTypes(p, mim, annotations):
             else:#just a derived Datatype, not annotated
                 baseType=dt.find("baseType")
                 bt_name=baseType[0].tag
-                registerDataType(p, bt_name, dt_name, None, dt_name, dat.addDataType)
+                registerDataType(annotations, p, bt_name, dt_name, None, dt_name, dat.addDataType)
                 rng=baseType[0].find("range")
                 if rng is not None:
                     dat.hasFixedRanges()
@@ -368,7 +376,7 @@ def checkStructDataTypes(p, mim, annotations):
                 typekey=datatype.tag
                 dataTypeName=datatype.get("name")
                 mimName=datatype.find("mimName").text if datatype.find("mimName") is not None else None
-                registerDataType(p, typekey, dataTypeName, mimName, member_name, dat.addDataType)
+                registerDataType(annotations, p, typekey, dataTypeName, mimName, member_name, dat.addDataType)
 
 
 def resolveDataTypes(p, mim, annotations):
@@ -397,13 +405,6 @@ def parseXML(xml_files, annotation_file, debugMode=False, onlyClass=None):
     if annotation_file:
         annotations=Annotation_parser.parse_annotation_file(annotation_file)
 
-    #XML 2 SMTLIB datatypes
-    for m in [x for x in annotations if "mapping" in x]:
-        p.addMapping(m[8:], annotations[m])
-        (n,r)=Util.getNameRange(m[8:])
-        dt=GroundType(n,annotations[m], r)
-        p.addDataType(n, dt)
-
     #PUT SOLVER INFORMATION TO THE PARSER RESULT
     if len([x for x in annotations if "solver" in x]) > 0:
                     p.addSolverSettings(annotations["solver_path"], [annotations[x] for x in annotations if "solver_arg" in x])
@@ -429,7 +430,7 @@ def parseXML(xml_files, annotation_file, debugMode=False, onlyClass=None):
 
     p.finish()
 
-    print "ROOT", p.rootClass.name
+    #print "ROOT", p.rootClass.name
     print "TESTCASES", p.getNumberOfTestCases()
     return p
 

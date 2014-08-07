@@ -86,8 +86,19 @@ def process(p, res, number):
     gtc=GenericTestCase(number)
     skeys={}
     clsses={}
-    print "PATHS", p.paths
-    print "RESULT", res.keys()
+    #print "PATHS", p.paths
+    #print "RESULT", res.keys()
+    if len(p.paths) != 0:
+        tempdict={}
+        for pt in p.paths[0]:
+            for k, v in res.iteritems():
+                if pt in k:
+                    tempdict[k]=v
+        res=tempdict
+        p.paths.pop(0)
+
+    
+
     for cls in res:
         clsname=cls[:cls.find("_")]
         if "sortkey" in cls:

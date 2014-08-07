@@ -52,9 +52,9 @@
     <smt>Bool</smt>
   </buildingBlock>
 
-  <!--<buildingBlock name="string" type="bitvector">
+  <buildingBlock name="string" type="bitvector">
     <smt>(_ BitVec 32)</smt>
-  </buildingBlock>-->
+  </buildingBlock>
 
   <datatype name="IPPrefix">
     <fields>
@@ -200,7 +200,7 @@
   </solver>
   <!--datatype annotations-->
   <dtMapping old="RouterIdStr" new="IPV4">
-    <!--<q1>
+    <q1>
       <range>
 	<min>#x00</min>
 	<max>#x7E</max>
@@ -209,7 +209,7 @@
 	<min>#x80</min>
 	<max>#xDF</max>
       </range>	
-    </q1>-->
+    </q1>
   </dtMapping>
   <dtMapping old="Ipv4UnicastAddressStr" new="IPV4">
     <q1>
@@ -238,7 +238,7 @@
   </strategy>-->
 
   <!-- mp.xml to smt mapping -->
-  <xml2SMTmapping xml="int8" smt="Int"/>
+  <!--<xml2SMTmapping xml="int8" smt="Int"/>
   <xml2SMTmapping xml="int16" smt="Int"/>
   <xml2SMTmapping xml="int32" smt="Int"/>
   <xml2SMTmapping xml="int64" smt="Int"/>
@@ -247,6 +247,6 @@
   <xml2SMTmapping xml="uint32" smt="Int"/>
   <xml2SMTmapping xml="uint64" smt="Int"/>
   <xml2SMTmapping xml="boolean" smt="Bool"/>
-  <xml2SMTmapping xml="string" smt="(_ BitVec 32)"/>
+  <xml2SMTmapping xml="string" smt="(_ BitVec 32)"/>-->
 </annotations>
 

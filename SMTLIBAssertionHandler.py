@@ -47,26 +47,20 @@ def addConstantAssertion(cls, func, attr, name, rang, parse_obj, isNullable):
         constantAssertions[cls]={}
     if "NOT_DEFINED" not in rang:
         for x in rang:
-            #print x
-            if x in parse_obj.xml2SMT:
-                #print "LAST ASSERTION: ", attr, func, isNullable
-                #({0} (value {1}))
+            if x in parse_obj.dataTypes and parse_obj.dataTypes[name].type=="GROUND":
                 constantAssertions[cls]["({0} {1})".format(attr, func)]={
-                    "type": parse_obj.dataTypes[name].basetype.upper(),
+                    "type": parse_obj.dataTypes[name].id_type.upper(),
                     "ranges": rang[x]
                     }
             else:
-                if x in parse_obj.dataTypes:
-                    addConstantAssertion(cls, func, attr, name, rang[x], parse_obj, isNullable)
-                    #print "\tCALL_RECURSIVE", func, attr, name, rang[x]
+                if x in parse_obj.dataTypes and parse_obj.dataTypes[x].type=="GROUND":
+                    addConstantAssertion(cls, func, attr, x, rang, parse_obj, isNullable)
+                elif x in parse_obj.dataTypes:
+                    addConstantAssertion(cls, func, attr, x, rang[x], parse_obj, isNullable)
                 else:
                     for y in rang[x]:
-                        #if attr=="routeDistinguisher":
-                        #    print "HERE", "({0} {1})".format(attr, func), x, y, rang[x][y], "parse_obj"
                         addConstantAssertion(cls, "({0} {1})".format(attr, func), x, y, {y:rang[x][y]}, parse_obj, isNullable)
-                        #print "\tCALL_RECURSIVE", x, "({0} {1})".format(attr, func), y, rang[x][y], "parse_obj"
-
-
+                        
 def handleBoundary(tcid, s, t, value, boundary, bt):
     typ=bt.upper()
     #print "BND", tcid, bt.upper(), s, value, boundary

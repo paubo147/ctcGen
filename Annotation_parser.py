@@ -52,12 +52,15 @@ def parse_annotation_file(file):
                             annotations["dt_"+dt_name]={"fields": fs, 
                                                         "produce_string":produce_str, 
                                                         "delimiter":delimiter}
+                elif fields.get("id") is not None:
+                    #can now be either exclusive or a normal 
+                    pass
+                
                 else:
                     print "no implementation for {0}".format(dt_name)
 
                         
-            else:
-                #NASTY STUFF: no fields? probably an exclusive datatype
+            elif dt.find("exclusive") is not None:
                 options={}
                 for option in dt.iter("option"):
                     option_id=option.get("id")
