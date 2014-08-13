@@ -2,7 +2,7 @@ from lxml import etree as ET
 import re
 import os
 
-from Parsing_bb import GroundType, DerivedType, SequenceType, StructType, EnumType, ClassNode, AttrNode
+from CtcTypes import GroundType, DerivedType, SequenceType, StructType, EnumType, ClassNode, AttrNode
 from TagFinder import findTag
 
 import Util
@@ -97,9 +97,8 @@ def checkSettings(attribute, a):
 #oldNewMapping={}
 
 def registerDataType(annotations, p, typekey, dtName, mimName, name, func_obj):
-    
     dat=p.dataTypes.get(typekey, None)
-
+ 
     if typekey in ("string", "boolean") or "int" in typekey:
         if dat is None:
             #            dat=p.xml2SMT[typekey] 
@@ -117,21 +116,25 @@ def registerDataType(annotations, p, typekey, dtName, mimName, name, func_obj):
         if typekey=="string":
             p.stringIsPresent()
     elif typekey == "derivedDataTypeRef":
+        dat=p.dataTypes.get(dtName, None)
         if dat is None:
             dat=DerivedType(dtName, mimName, True)
             p.addDataType(dtName, dat)
         func_obj(name, dat)
     elif typekey =="enumRef":
+        dat=p.dataTypes.get(dtName, None)
         if dat is None:
             dat=EnumType(dtName,mimName, True)
             p.addDataType(dtName, dat)
         func_obj(name, dat)
     elif typekey == "structRef":
+        dat=p.dataTypes.get(dtName, None)
         if dat is None:
             dat=StructType(dtName, mimName, True)
             p.addDataType(dtName, dat)
         func_obj(name, dat)
     elif typekey == "sequence":
+        dat=p.dataTypes.get(dtName, None)
         if dat is None:
             dat=SequenceType(dtName, mimName, True)
             p.addDataType(dtName, dat)

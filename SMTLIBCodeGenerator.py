@@ -9,8 +9,6 @@ class SMTLIBCodeGenerator:
 
     def get_smt_commented_section(self, s2):
         return "".join([self.get_smt_comment(len(s2)*"-"),self.get_smt_comment(s2),self.get_smt_comment(len(s2)*"-"),"\n"])
-    def get_smt_assertion(self, arg1):
-        return self.token_list["ASSERTION"].format(arg1)
 
     def get_smt_range_single(self, name, typ, minV, maxV):
         le=self.token_list["LE_"+typ.upper()]
@@ -52,8 +50,8 @@ class SMTLIBCodeGenerator:
     def get_smt_range_assertion(self, name, typ, ranges):
         return "".join([self.get_smt_assertion(self.get_smt_range(name, typ, ranges)),"\n"])
 
-    def get_smt_assertion(self, arg1):
-        return self.token_list["ASSERTION"].format(arg1)
+    def get_smt_assertion(self, arg1, newline=False):
+        return self.token_list["ASSERTION"].format(("\n{}" if newline else "{}").format(arg1))
 
     def get_smt_sort(self, arg1, arg2):
         return "".join([self.token_list["DEFINE_SORT"].format(arg1, arg2), "\n"])
@@ -64,21 +62,22 @@ class SMTLIBCodeGenerator:
     def get_smt_declare_fun(self, arg1, arg2, arg3, arg4):
         return "".join([self.token_list["DECLARE_FUN"].format(arg1, arg2, arg3, arg4), "\n"])
 
+    def get_smt_define_fun(self, arg1, arg2, arg3, arg4):
+        return "".join([self.token_list["DEFINE_FUN"].format(arg1, arg2, arg3, arg4), "\n"])
+
     def get_smt_not_eq(self, arg1, arg2):
         return self.token_list["UNARY_EXPRESSION"].format(self.token_list["NOT"],
             self.token_list["BINARY_EXPRESSION"].format(self.token_list["EQ"], arg1, arg2))
 
-    def get_smt_assertion(self, arg1):
-        return self.token_list["ASSERTION"].format(arg1)
 
-    def get_smt_eq(self, arg1, arg2):
-        return self.token_list["BINARY_EXPRESSION"].format(self.token_list["EQ"], arg1, arg2)
+    def get_smt_eq(self, arg1, arg2, newline=False):
+        return self.token_list["BINARY_EXPRESSION"].format(self.token_list["EQ"], arg1, ("\n" if newline else "")+arg2)
 
     def get_smt_not(self, arg1):
         return self.token_list["UNARY_EXPRESSION"].format(self.token_list["NOT"],arg1)
 
-    def get_smt_and(self, lst):
-        temp=" ".join(["{"+str(i)+"}" for i in range(len(lst))])
+    def get_smt_and(self, lst,newlines=False):
+        temp=(" " if not newlines else "\n").join(["{"+str(i)+"}" for i in range(len(lst))])
         return "("+self.token_list["AND"]+" "+temp.format(*lst)+")"
 
     def get_smt_or(self, lst):

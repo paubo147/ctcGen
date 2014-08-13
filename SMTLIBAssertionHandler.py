@@ -148,7 +148,6 @@ def identifyBoundary(tcid, prefix, vals, a, dt, tempBound):
 def checkTestCase(gtc, p):
     for c in gtc.clsses:
         for a, v in c.vals.iteritems():
-            #print a.name, v
             plain_values=a.dataType.transform(v)
             #print a.dataType.annotatedValue, v
             #WE NEED A PARAMETER WHICH GUIDES THE ATTRIBUTE TESTING PROCESS

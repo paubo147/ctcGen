@@ -2,18 +2,22 @@
 <annotations>
   <buildingBlock name="vec16bit" type="bitvector">
     <smt>(_ BitVec 16)</smt>
+    <smt>Int</smt>
   </buildingBlock>
 
   <buildingBlock name="vec8bit" type="bitvector">
     <smt>(_ BitVec 8)</smt>
+    <smt>Int</smt>
   </buildingBlock>
 
   <buildingBlock name="asNumber" type="bitvector">
     <smt>(_ BitVec 16)</smt>
+    <smt>Int</smt>
   </buildingBlock>
 
   <buildingBlock name="Number" type="bitvector">
     <smt>(_ BitVec 32)</smt>
+    <smt>Int</smt>
   </buildingBlock>
 
   <buildingBlock name="int8" type="int">
@@ -53,7 +57,7 @@
   </buildingBlock>
 
   <buildingBlock name="string" type="bitvector">
-    <smt>(_ BitVec 32)</smt>
+    <smt>Int</smt>
   </buildingBlock>
 
   <datatype name="IPPrefix">
@@ -196,6 +200,7 @@
       <token name="DEFINE_SORT">(define-sort {0} () {1})</token>
       <token name="DECLARE_DATATYPES">(declare-datatypes ({0}) (({1})))</token>
       <token name="DECLARE_FUN">(declare-fun {0} ({1}) ({2} {3}))</token>
+      <token name="DEFINE_FUN">(define-fun {0} ({1}) ({2}) {3})</token>
     </tokens>
   </solver>
   <!--datatype annotations-->

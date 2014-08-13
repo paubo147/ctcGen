@@ -42,6 +42,28 @@ def getNameRange(s):
     else:
         return (s, [])
 
+
+def getPartitions(typ,rnge):
+    if typ=="boolean":
+        return [[1], [0], [None], [4]]
+    elif typ=="string":
+        return [[]]
+    else:
+        if rnge is not None:
+            boundaries=[]
+            n=3 #could be passed as a parameter
+            for rng in rnge:
+                b=get_proper_int(rng[1])
+                a=get_proper_int(rng[0])
+                division=(b-a)/float(n)
+                for i in range(n):
+                    boundaries.append([int(a+i*division+(1 if i!=0 else 0)),int(a+(i+1)*division)])
+            #print boundaries, min(boundaries)[0], max(boundaries)[-1]
+            boundaries.append(["-x", min(boundaries)[0]])
+            boundaries.append([max(boundaries)[-1], "x"])
+            boundaries.append([None])
+            return boundaries
+
 def getBoundaries(typ, rnge):
     if typ=="boolean":
         return [["true"], ["false"]]

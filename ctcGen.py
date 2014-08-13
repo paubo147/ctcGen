@@ -11,6 +11,7 @@ from Parser import parseXML, findConvexHull, findFileOfClass
 import SMTLIBBuilder
 import SMTLIBHandler
 import SMTController
+import SMTLIBEncoder
 
 from SMTLIBCodeGenerator import *
 
@@ -51,6 +52,9 @@ def create(args):
     #    print dt.level, dt.type, dt.basetype, dt.name, dt.content if hasattr(dt, "content") else "NONE"
 
     smtlib_gen=SMTLIBCodeGenerator(parse_obj.solver_tokens)
+
+    encoder=SMTLIBEncoder.SMTLIBEncoder()
+    (smtlib_string,strategy)=encoder.encode(smtlib_gen, args.files, parse_obj)
 
     #smtlib_handler=SMTLIBHandler.SMTLIBHandler1()
     SMTLIBBuilder.init(smtlib_gen, parse_obj)

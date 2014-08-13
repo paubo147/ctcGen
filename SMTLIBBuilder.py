@@ -41,8 +41,9 @@ def buildSMTLIBFacts(files, parse_obj, smtlib_gen):
 	
 	fixedString.append(smtlib_gen.get_smt_commented_section("DATATYPES"))
 	data=sorted(parse_obj.dataTypes.values(), key=lambda x: x.level, reverse=True)
-
+	
 	for k, group in groupby(data, key=lambda x:x.level):
+		
 		if k!=0:
 			for val in group:
 				fixedString.append(val.smt)

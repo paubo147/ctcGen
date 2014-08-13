@@ -1,6 +1,6 @@
 from time import strftime
 
-import Parsing_bb
+import CtcTypes
 import SMTLIBAssertionHandler
 
 import Util
@@ -15,10 +15,10 @@ def get_preface(smtlib_gen, files):
             "\n"]
 
 settings={
-    Parsing_bb.GroundType : { "sortkey" : 4, "name" : "BASIC SORTS"},
-    Parsing_bb.DerivedType : {"sortkey" : 3, "name" : "DERIVED TYPES"},
-    Parsing_bb.EnumType : {"sortkey" : 2, "name" : "ENUM TYPES"},
-    Parsing_bb.StructType : {"sortkey": 1, "name" : "STRUCTS"},
+    CtcTypes.GroundType : { "sortkey" : 4, "name" : "BASIC SORTS"},
+    CtcTypes.DerivedType : {"sortkey" : 3, "name" : "DERIVED TYPES"},
+    CtcTypes.EnumType : {"sortkey" : 2, "name" : "ENUM TYPES"},
+    CtcTypes.StructType : {"sortkey": 1, "name" : "STRUCTS"},
     }
 
 def sortkey(t):
@@ -32,7 +32,7 @@ def initClassNodeSMT(t, smtgen, parse_obj):
     t.constructor="mk_{0}".format(t.name)
     t.instance_function="{0}_instance".format(t.name)
     t.key_function="{0}_key".format(t.name)
-    t.attr_type_set=[]
+    t.attr_type_set=set()
     t.attribute_string=[]
 
     for a in t.attributes:
@@ -41,7 +41,7 @@ def initClassNodeSMT(t, smtgen, parse_obj):
 
         #t.attr_type_set.add("(Attribute {0})".format(a.dataType.name))
         #t.attribute_string.append("({0} (Attribute {1}))".format(a.name, a.dataType.name))
-        t.attr_type_set.append(a.dataType.name)
+        t.attr_type_set.add(a.dataType.name)
         t.attribute_string.append("({0} {1})".format(a.name, a.dataType.name))
         t.nillable=False
         if "isNillable" in a:
@@ -82,6 +82,7 @@ def initClassNodeSMT(t, smtgen, parse_obj):
     
     for a in sorted(SMTLIBAssertionHandler.constantAssertions[t.name]):
         ca=SMTLIBAssertionHandler.constantAssertions[t.name][a]
+
         ret.append(smtgen.get_smt_range_assertion(a, ca["type"], ca["ranges"]))
     ret.append("\n")
     t.smt="".join(ret)
@@ -124,7 +125,6 @@ def initGroundTypeSMT(t, smtgen, p):
         t.transform=transformDirect
 
     if t.name in p.dataTypes:
-        print t.name
         smt_type=p.dataTypes[t.name].smtType
     else:
         raise Exception("FATAL: could not get smt_type for {0}".format(t.name))
@@ -132,7 +132,6 @@ def initGroundTypeSMT(t, smtgen, p):
         
 
 def initDerivedTypeSMT(t, smtgen, p):
-        
     def transformDerivedType(x):
         temp=t.content[0].transform(x)
         t.annotatedValue=t.content[0].annotatedValue
